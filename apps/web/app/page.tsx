@@ -2,10 +2,10 @@ import { Button } from "@/components/ui/button";
 
 export default function Home() {
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background px-6 py-16 text-foreground">
+    <main className="flex min-h-svh items-center justify-center bg-white px-6 py-16 text-neutral-950">
       <section className="flex w-full max-w-xl flex-col items-center gap-8 text-center">
         <div className="space-y-3">
-          <p className="text-sm font-medium text-muted-foreground">shadcn/ui</p>
+          <p className="text-sm font-medium text-neutral-500">shadcn/ui</p>
           <h1 className="text-3xl font-semibold tracking-normal">
             Buttons are ready
           </h1>

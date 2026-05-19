@@ -104,9 +104,6 @@ importers:
       '@radix-ui/react-slot':
         specifier: 'catalog:'
         version: 1.2.4(@types/react@19.2.2)(react@19.2.0)
-      '@repo/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -194,37 +191,6 @@ importers:
         version: 8.50.0(eslint@9.39.1(jiti@2.7.0))(typescript@5.9.2)
 
   packages/typescript-config: {}
-
-  packages/ui:
-    dependencies:
-      react:
-        specifier: 'catalog:'
-        version: 19.2.0
-      react-dom:
-        specifier: 'catalog:'
-        version: 19.2.0(react@19.2.0)
-    devDependencies:
-      '@repo/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
-      '@repo/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      '@types/node':
-        specifier: 'catalog:'
-        version: 22.15.3
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.2
-      '@types/react-dom':
-        specifier: 'catalog:'
-        version: 19.2.2(@types/react@19.2.2)
-      eslint:
-        specifier: 'catalog:'
-        version: 9.39.1(jiti@2.7.0)
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.2
 
 packages:
 

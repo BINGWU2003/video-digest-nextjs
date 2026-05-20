@@ -1,6 +1,7 @@
 import type {
   OutputMode,
   RecordCreatorType,
+  VideoRecordStatus,
   VideoPlatform,
 } from "../schema.js";
 import type { VideoRecordRow } from "../tables.js";
@@ -41,6 +42,23 @@ export type ListVideoRecordsForUserInput = {
   offset?: number;
 };
 
+export type UpdateVideoRecordStatusForUserInput = {
+  /** 视频记录 ID。 */
+  id: string;
+  /** 记录所属用户 ID，来自 Supabase Auth。 */
+  userId: string;
+  /** 要写入的视频处理状态。 */
+  status: VideoRecordStatus;
+  /** 可选的当前状态前置条件，用于避免覆盖非预期状态。 */
+  expectedStatus?: VideoRecordStatus;
+  /** 结构化失败码；非失败状态通常传 null 清空。 */
+  errorCode?: string | null;
+  /** 面向用户或运维排查的失败说明；非失败状态通常传 null 清空。 */
+  errorMessage?: string | null;
+  /** 任务完成、失败或取消时间；进行中状态通常传 null 清空。 */
+  completedAt?: Date | null;
+};
+
 export type VideoRecordsRepository = {
   /** 创建一条排队中的视频记录，并返回已持久化的数据行。 */
   create(input: CreateVideoRecordInput): Promise<VideoRecordRow>;
@@ -53,4 +71,8 @@ export type VideoRecordsRepository = {
   }): Promise<VideoRecordRow | null>;
   /** 按用户查询可见视频记录列表，默认按创建时间倒序。 */
   listForUser(input: ListVideoRecordsForUserInput): Promise<VideoRecordRow[]>;
+  /** 在指定用户的数据边界内更新视频记录状态，并返回更新后的数据行。 */
+  updateStatusForUser(
+    input: UpdateVideoRecordStatusForUserInput,
+  ): Promise<VideoRecordRow>;
 };

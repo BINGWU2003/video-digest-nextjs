@@ -54,7 +54,7 @@ create_video_digest_job
 
 暂未完成：
 
-- worker 侧完整任务状态流转。
+- worker 侧真实视频元数据读取。
 - 视频 provider、ASR、LLM summary 和邮件投递实现。
 
 ## 本地开发

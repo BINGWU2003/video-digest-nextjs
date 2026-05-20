@@ -1,6 +1,13 @@
-import { createSupabaseJobEventsRepository } from "@repo/database";
+import {
+  createSupabaseJobEventsRepository,
+  createSupabaseVideoRecordsRepository,
+  type JobEventsRepository,
+  type VideoRecordsRepository,
+} from "@repo/database";
 import {
   createBullMqVideoDigestWorker,
+  type VideoDigestQueuePayload,
+  type VideoDigestWorkerContext,
   videoDigestJobName,
   videoDigestQueueName,
   type VideoDigestWorkerHandle,
@@ -42,23 +49,18 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
   );
 
   const jobEventsRepository = createSupabaseJobEventsRepository(supabase);
+  const videoRecordsRepository = createSupabaseVideoRecordsRepository(supabase);
 
   const worker = createBullMqVideoDigestWorker({
     redisUrl: config.redisUrl,
     async processor(payload, context) {
-      await jobEventsRepository.create({
-        recordId: payload.recordId,
-        userId: payload.userId,
-        status: "fetching_metadata",
-        message: "Worker 已接收视频摘要任务，开始准备读取视频元数据。",
-        metadata: {
-          attemptsMade: context.attemptsMade,
-          queueJobId: context.queueJobId,
+      await processVideoDigestJob(
+        {
+          jobEventsRepository,
+          videoRecordsRepository,
         },
-      });
-
-      console.log(
-        `Accepted video digest job ${context.queueJobId ?? payload.recordId}`,
+        payload,
+        context,
       );
     },
   });
@@ -68,6 +70,88 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
   );
 
   return worker;
+}
+
+type ProcessVideoDigestJobDependencies = {
+  jobEventsRepository: JobEventsRepository;
+  videoRecordsRepository: VideoRecordsRepository;
+};
+
+async function processVideoDigestJob(
+  dependencies: ProcessVideoDigestJobDependencies,
+  payload: VideoDigestQueuePayload,
+  context: VideoDigestWorkerContext,
+) {
+  try {
+    await dependencies.videoRecordsRepository.updateStatusForUser({
+      id: payload.recordId,
+      userId: payload.userId,
+      status: "fetching_metadata",
+      expectedStatus: "queued",
+      errorCode: null,
+      errorMessage: null,
+      completedAt: null,
+    });
+
+    await dependencies.jobEventsRepository.create({
+      recordId: payload.recordId,
+      userId: payload.userId,
+      status: "fetching_metadata",
+      message: "Worker 已接收视频摘要任务，开始准备读取视频元数据。",
+      metadata: {
+        attemptsMade: context.attemptsMade,
+        queueJobId: context.queueJobId,
+      },
+    });
+
+    console.log(
+      `Accepted video digest job ${context.queueJobId ?? payload.recordId}`,
+    );
+  } catch (caught) {
+    await markVideoDigestJobFailed(dependencies, payload, context, caught);
+    throw caught;
+  }
+}
+
+async function markVideoDigestJobFailed(
+  dependencies: ProcessVideoDigestJobDependencies,
+  payload: VideoDigestQueuePayload,
+  context: VideoDigestWorkerContext,
+  caught: unknown,
+) {
+  const errorMessage = toErrorMessage(caught);
+
+  try {
+    await dependencies.videoRecordsRepository.updateStatusForUser({
+      id: payload.recordId,
+      userId: payload.userId,
+      status: "failed",
+      errorCode: "worker_processing_failed",
+      errorMessage,
+      completedAt: new Date(),
+    });
+
+    await dependencies.jobEventsRepository.create({
+      recordId: payload.recordId,
+      userId: payload.userId,
+      status: "failed",
+      message: errorMessage,
+      metadata: {
+        attemptsMade: context.attemptsMade,
+        errorCode: "worker_processing_failed",
+        queueJobId: context.queueJobId,
+      },
+    });
+  } catch (failureUpdateError) {
+    console.error(
+      "Failed to persist video digest job failure state.",
+      failureUpdateError,
+    );
+  }
+}
+
+function toErrorMessage(caught: unknown) {
+  return caught instanceof Error ? caught.message : String(caught);
 }
 
 function readWorkerConfig(): WorkerConfig {

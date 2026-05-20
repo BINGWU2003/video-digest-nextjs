@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
   CreateVideoRecordInput,
+  UpdateVideoRecordStatusForUserInput,
   VideoRecordsRepository,
 } from "../repositories/video-records.js";
 import type { VideoRecordRow } from "../tables.js";
@@ -42,6 +43,13 @@ type SupabaseCreateVideoRecordInput = {
   send_email: boolean;
   created_by_type: VideoRecordRow["createdByType"];
   created_by_id: string | null;
+};
+
+type SupabaseUpdateVideoRecordStatusInput = {
+  status: VideoRecordRow["status"];
+  error_code?: string | null;
+  error_message?: string | null;
+  completed_at?: string | null;
 };
 
 export function createSupabaseVideoRecordsRepository(
@@ -110,6 +118,34 @@ export function createSupabaseVideoRecordsRepository(
         mapVideoRecordRow(row as SupabaseVideoRecordRow),
       );
     },
+
+    async updateStatusForUser(input) {
+      let query = client
+        .from("video_records")
+        .update(toSupabaseStatusUpdateInput(input))
+        .eq("id", input.id)
+        .eq("user_id", input.userId)
+        .is("deleted_at", null);
+
+      if (input.expectedStatus) {
+        query = query.eq("status", input.expectedStatus);
+      }
+
+      const { data, error } = await query.select("*").maybeSingle();
+
+      if (error) {
+        throw new DatabaseQueryError("更新视频记录状态失败。", error);
+      }
+
+      if (!data) {
+        throw new DatabaseQueryError(
+          "更新视频记录状态失败：记录不存在或状态不匹配。",
+          null,
+        );
+      }
+
+      return mapVideoRecordRow(data as SupabaseVideoRecordRow);
+    },
   };
 }
 
@@ -127,6 +163,28 @@ function toSupabaseCreateInput(
     created_by_type: input.createdByType,
     created_by_id: input.createdById,
   };
+}
+
+function toSupabaseStatusUpdateInput(
+  input: UpdateVideoRecordStatusForUserInput,
+): SupabaseUpdateVideoRecordStatusInput {
+  const updateInput: SupabaseUpdateVideoRecordStatusInput = {
+    status: input.status,
+  };
+
+  if (input.errorCode !== undefined) {
+    updateInput.error_code = input.errorCode;
+  }
+
+  if (input.errorMessage !== undefined) {
+    updateInput.error_message = input.errorMessage;
+  }
+
+  if (input.completedAt !== undefined) {
+    updateInput.completed_at = input.completedAt?.toISOString() ?? null;
+  }
+
+  return updateInput;
 }
 
 function mapVideoRecordRow(row: SupabaseVideoRecordRow): VideoRecordRow {

@@ -23,7 +23,7 @@ packages/queue
   队列边界。封装 queue name、job name、payload、enqueue interface 和 BullMQ/Redis producer adapter。
 
 apps/worker
-  常驻 worker 应用。消费 BullMQ 队列，当前先写入任务事件，后续调用 core service 更新数据库。
+  常驻 worker 应用。消费 BullMQ 队列，当前先更新任务状态并写入任务事件，后续调用 core service 处理视频。
 ```
 
 ## 当前模板
@@ -74,14 +74,17 @@ apps/worker
   src/index.ts
     startWorker()
     消费 process-video-digest job
+    更新 video_records fetching_metadata 状态
     写入 job_events fetching_metadata 事件
+    失败时更新 video_records failed 状态
+    失败时写入 job_events failed 事件
 
 packages/mcp-tools
   src/tools/create-video-digest-job.ts
     createVideoDigestJobTool
 ```
 
-这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 会根据 `REDIS_URL` 自动选择 BullMQ producer 或 no-op 队列；worker 会消费 BullMQ job 并记录 `fetching_metadata` 事件。
+这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 会根据 `REDIS_URL` 自动选择 BullMQ producer 或 no-op 队列；worker 会消费 BullMQ job，将记录状态推进到 `fetching_metadata`，并在失败时写入 `failed` 状态和失败事件。
 
 ## 调用方向
 
@@ -108,4 +111,4 @@ MCP Tool
 1. 模块边界是否符合文档预期。
 2. `video-records`、`job-events`、`usage-events` 模板是否足够清楚，可复制到 transcript、summary、delivery。
 3. 是否继续沿用 repository interface 方式扩展后续模块。
-4. 是否需要在下一步引入 `video_records.status` 更新或数据库事务封装。
+4. 是否需要在下一步引入真实视频元数据读取或数据库事务封装。

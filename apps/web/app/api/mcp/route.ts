@@ -5,10 +5,10 @@ import {
 } from "@repo/database";
 import { createVideoDigestJobInputSchema } from "@repo/job-contracts";
 import { createVideoDigestJobTool } from "@repo/mcp-tools";
-import { createNoopVideoDigestQueue } from "@repo/queue";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
+import { getVideoDigestQueue } from "@/lib/queue/video-digest-queue";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     videoRecordsRepository: createSupabaseVideoRecordsRepository(supabase),
     jobEventsRepository: createSupabaseJobEventsRepository(supabase),
     usageEventsRepository: createSupabaseUsageEventsRepository(supabase),
-    videoDigestQueue: createNoopVideoDigestQueue(),
+    videoDigestQueue: getVideoDigestQueue(),
   });
 
   try {

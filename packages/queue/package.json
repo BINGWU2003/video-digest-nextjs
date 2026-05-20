@@ -14,6 +14,10 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint ."
   },
+  "dependencies": {
+    "bullmq": "catalog:",
+    "ioredis": "catalog:"
+  },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",

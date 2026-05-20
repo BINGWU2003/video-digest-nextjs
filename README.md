@@ -11,7 +11,7 @@ Video Digest 是一个基于 Next.js 的视频摘要产品。用户可以提交 
 - Auth: Supabase Auth
 - Database: Supabase Postgres + SQL migrations + RLS
 - Contracts: Zod
-- Worker: TypeScript Node.js 模板，后续接 BullMQ/Redis
+- Worker: TypeScript Node.js 模板，队列 producer 已接 BullMQ/Redis
 
 ## 目录结构
 
@@ -40,7 +40,7 @@ supabase/migrations/   Supabase SQL migrations
 - Web 静态产品界面和 Supabase 登录骨架。
 - 数据库表结构设计文档。
 - 后端模块骨架。
-- `video-records` 创建链路、记录读取 API、任务事件/用量事件写入，以及 no-op 队列投递边界：
+- `video-records` 创建链路、记录读取 API、任务事件/用量事件写入，以及 BullMQ/Redis 队列 producer 边界：
 
 ```txt
 create_video_digest_job
@@ -53,7 +53,7 @@ create_video_digest_job
 
 暂未完成：
 
-- BullMQ/Redis 实际队列入队与 worker 消费。
+- BullMQ worker 消费。
 - 视频 provider、ASR、LLM summary 和邮件投递实现。
 
 ## 本地开发
@@ -96,6 +96,14 @@ cp apps/web/env.local.example apps/web/.env.local
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 ```
+
+如果需要真实队列入队，再填写：
+
+```bash
+REDIS_URL=redis://localhost:6379
+```
+
+未填写 `REDIS_URL` 时，创建任务会使用 no-op 队列，不写入 Redis。
 
 如果项目仍使用旧版 anon key，也可以填：
 

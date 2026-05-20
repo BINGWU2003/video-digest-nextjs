@@ -40,6 +40,14 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 ```
 
+如果希望 `/api/mcp` 创建任务后真实投递到 BullMQ，请配置 Redis：
+
+```bash
+REDIS_URL=redis://localhost:6379
+```
+
+未配置 `REDIS_URL` 时，Web 会使用 no-op 队列实现：创建链路仍可运行，但不会写入 Redis。
+
 如果你的 Supabase 项目仍使用旧版 anon key，也可以填：
 
 ```bash
@@ -74,7 +82,7 @@ pnpm --filter web build
 
 当前 `/api/mcp` 先实现最小 tool gateway，不是完整 MCP 协议实现。它接受当前登录用户 session，并调用后端模块创建一条真实 `video_records` 记录，同时写入 `job_events` 的排队事件、`usage_events` 的创建用量，并调用队列 enqueue 边界。
 
-当前 Web 注入的是 `createNoopVideoDigestQueue()`，用于先打通调用边界；它不会真正写入 Redis，后续会替换为 BullMQ 队列实现。
+队列实现由 `REDIS_URL` 决定：配置后使用 BullMQ 真实入队，未配置时使用 no-op 队列。
 
 请求示例：
 

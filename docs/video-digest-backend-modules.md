@@ -20,7 +20,7 @@ packages/mcp-tools
   MCP tool 适配层。只负责 tool 名称、参数 schema、权限声明和调用 core service。
 
 packages/queue
-  队列边界。封装 queue name、job name、payload、enqueue interface，后续接 BullMQ/Redis。
+  队列边界。封装 queue name、job name、payload、enqueue interface 和 BullMQ/Redis producer adapter。
 
 apps/worker
   常驻 worker 应用。后续消费队列并调用 core service 更新数据库。
@@ -67,13 +67,14 @@ packages/queue
     VideoDigestQueuePayload
     VideoDigestQueue
     createNoopVideoDigestQueue()
+    createBullMqVideoDigestQueue()
 
 packages/mcp-tools
   src/tools/create-video-digest-job.ts
     createVideoDigestJobTool
 ```
 
-这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 注入 no-op 队列实现，还不会真正写入 Redis；下一步建议增加 BullMQ/Redis adapter。
+这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 会根据 `REDIS_URL` 自动选择 BullMQ producer 或 no-op 队列；下一步建议增加 BullMQ worker 消费入口。
 
 ## 调用方向
 
@@ -99,4 +100,4 @@ MCP Tool
 1. 模块边界是否符合文档预期。
 2. `video-records`、`job-events`、`usage-events` 模板是否足够清楚，可复制到 transcript、summary、delivery。
 3. 是否继续沿用 repository interface 方式扩展后续模块。
-4. 是否需要在下一步引入 BullMQ/Redis 实际队列实现或数据库事务封装。
+4. 是否需要在下一步引入 BullMQ worker 消费入口或数据库事务封装。

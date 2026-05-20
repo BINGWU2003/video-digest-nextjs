@@ -198,6 +198,10 @@ importers:
         version: 5.9.2
 
   packages/database:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.106.0
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*

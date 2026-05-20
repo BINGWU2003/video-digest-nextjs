@@ -28,6 +28,19 @@ export type CreateVideoRecordInput = {
   createdById: string | null;
 };
 
+export type ListVideoRecordsForUserInput = {
+  /** 记录所属用户 ID，来自 Supabase Auth。 */
+  userId: string;
+  /** 可选状态过滤。 */
+  status?: VideoRecordRow["status"];
+  /** 可选平台过滤。 */
+  platform?: VideoPlatform;
+  /** 返回记录数，默认由具体 repository 决定。 */
+  limit?: number;
+  /** 跳过记录数，用于分页。 */
+  offset?: number;
+};
+
 export type VideoRecordsRepository = {
   /** 创建一条排队中的视频记录，并返回已持久化的数据行。 */
   create(input: CreateVideoRecordInput): Promise<VideoRecordRow>;
@@ -38,4 +51,6 @@ export type VideoRecordsRepository = {
     /** 记录所属用户 ID，来自 Supabase Auth。 */
     userId: string;
   }): Promise<VideoRecordRow | null>;
+  /** 按用户查询可见视频记录列表，默认按创建时间倒序。 */
+  listForUser(input: ListVideoRecordsForUserInput): Promise<VideoRecordRow[]>;
 };

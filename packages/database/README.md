@@ -26,6 +26,9 @@ src/tables.ts
 
 src/repositories/video-records.ts
   VideoRecordsRepository 模板。
+
+src/supabase/video-records-repository.ts
+  Supabase 版 video_records repository，实现 create、findByIdForUser、listForUser。
 ```
 
 ## Migration

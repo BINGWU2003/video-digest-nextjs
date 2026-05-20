@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import { authUserExistsByEmail } from "@/lib/supabase/admin";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
@@ -11,19 +12,65 @@ function encodedMessage(message: string) {
   return encodeURIComponent(message);
 }
 
-function getString(formData: FormData, key: string) {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
+const nextPathSchema = z.preprocess(
+  (value) => (typeof value === "string" ? value.trim() : ""),
+  z
+    .string()
+    .refine(
+      (value) => !value || (value.startsWith("/") && !value.startsWith("//")),
+      {
+        message: "跳转地址无效。",
+      },
+    )
+    .transform((value) => value || "/dashboard"),
+);
 
-function getNextPath(formData: FormData) {
-  const next = getString(formData, "next");
+const emailSchema = z.preprocess(
+  (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
+  z.email("请输入有效邮箱。"),
+);
 
-  if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return "/dashboard";
+const signInSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1, "请输入密码。"),
+  next: nextPathSchema,
+});
+
+const signUpSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(6, "密码至少需要 6 位。"),
+  next: nextPathSchema,
+});
+
+type AuthFormData = {
+  email: string;
+  password: string;
+  next: string;
+};
+
+function parseFormData<T extends z.ZodType<AuthFormData>>(
+  schema: T,
+  formData: FormData,
+) {
+  const result = schema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+    next: formData.get("next"),
+  });
+
+  if (!result.success) {
+    return {
+      data: null,
+      message: result.error.issues[0]?.message ?? "表单内容无效。",
+      next: nextPathSchema.safeParse(formData.get("next")).data ?? "/dashboard",
+    };
   }
 
-  return next;
+  return {
+    data: result.data as z.infer<T>,
+    message: null,
+    next: result.data.next as string,
+  };
 }
 
 export async function signInWithPassword(formData: FormData) {
@@ -33,16 +80,16 @@ export async function signInWithPassword(formData: FormData) {
     );
   }
 
-  const email = getString(formData, "email");
-  const password = getString(formData, "password");
-  const next = getNextPath(formData);
+  const parsed = parseFormData(signInSchema, formData);
+  const { next } = parsed;
 
-  if (!email || !password) {
+  if (!parsed.data) {
     redirect(
-      `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("请输入邮箱和密码。")}`,
+      `/login?next=${encodeURIComponent(next)}&message=${encodedMessage(parsed.message)}`,
     );
   }
 
+  const { email, password } = parsed.data;
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -62,16 +109,16 @@ export async function signUpWithPassword(formData: FormData) {
     );
   }
 
-  const email = getString(formData, "email");
-  const password = getString(formData, "password");
-  const next = getNextPath(formData);
+  const parsed = parseFormData(signUpSchema, formData);
+  const { next } = parsed;
 
-  if (!email || password.length < 6) {
+  if (!parsed.data) {
     redirect(
-      `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("请输入邮箱，并使用至少 6 位密码。")}`,
+      `/login?next=${encodeURIComponent(next)}&message=${encodedMessage(parsed.message)}`,
     );
   }
 
+  const { email, password } = parsed.data;
   const origin = (await headers()).get("origin");
   const emailRedirectTo = origin
     ? `${origin}/auth/callback?next=${encodeURIComponent(next)}`

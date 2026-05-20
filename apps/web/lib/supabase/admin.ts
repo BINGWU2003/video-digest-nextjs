@@ -1,28 +1,39 @@
-import { createClient } from "@supabase/supabase-js";
-
 import {
   hasSupabaseAdminConfig,
   supabaseServiceRoleKey,
   supabaseUrl,
 } from "./config";
 
-export function createAdminClient() {
-  if (!hasSupabaseAdminConfig()) {
-    return null;
+type SupabaseAdminUser = {
+  email?: string;
+};
+
+type SupabaseAdminUsersResponse = {
+  users?: SupabaseAdminUser[];
+};
+
+async function listAuthUsers(page: number, perPage: number) {
+  const baseUrl = supabaseUrl!.replace(/\/$/, "");
+  const response = await fetch(
+    `${baseUrl}/auth/v1/admin/users?page=${page}&per_page=${perPage}`,
+    {
+      headers: {
+        apikey: supabaseServiceRoleKey!,
+        Authorization: `Bearer ${supabaseServiceRoleKey}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Supabase admin users request failed: ${response.status}`);
   }
 
-  return createClient(supabaseUrl!, supabaseServiceRoleKey!, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return (await response.json()) as SupabaseAdminUsersResponse;
 }
 
 export async function authUserExistsByEmail(email: string) {
-  const supabase = createAdminClient();
-
-  if (!supabase) {
+  if (!hasSupabaseAdminConfig()) {
     return null;
   }
 
@@ -31,29 +42,27 @@ export async function authUserExistsByEmail(email: string) {
   let page = 1;
 
   while (page <= 20) {
-    const { data, error } = await supabase.auth.admin.listUsers({
-      page,
-      perPage,
-    });
+    try {
+      const data = await listAuthUsers(page, perPage);
+      const users = data.users ?? [];
 
-    if (error) {
+      const exists = users.some(
+        (user) => user.email?.toLowerCase() === normalizedEmail,
+      );
+
+      if (exists) {
+        return true;
+      }
+
+      if (users.length < perPage) {
+        return false;
+      }
+
+      page += 1;
+    } catch (error) {
       console.error("Failed to check existing Supabase auth users.", error);
       return null;
     }
-
-    const exists = data.users.some(
-      (user) => user.email?.toLowerCase() === normalizedEmail,
-    );
-
-    if (exists) {
-      return true;
-    }
-
-    if (data.users.length < perPage) {
-      return false;
-    }
-
-    page += 1;
   }
 
   return false;

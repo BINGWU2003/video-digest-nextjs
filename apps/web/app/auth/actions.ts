@@ -26,20 +26,6 @@ function getNextPath(formData: FormData) {
   return next;
 }
 
-function isDuplicateEmailSignUp(errorMessage?: string) {
-  if (!errorMessage) {
-    return false;
-  }
-
-  const normalizedMessage = errorMessage.toLowerCase();
-
-  return (
-    normalizedMessage.includes("already registered") ||
-    normalizedMessage.includes("already exists") ||
-    normalizedMessage.includes("user already")
-  );
-}
-
 export async function signInWithPassword(formData: FormData) {
   if (!hasSupabaseConfig()) {
     redirect(
@@ -100,7 +86,7 @@ export async function signUpWithPassword(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -108,26 +94,14 @@ export async function signUpWithPassword(formData: FormData) {
     },
   });
 
-  if (isDuplicateEmailSignUp(error?.message)) {
-    redirect(
-      `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("该邮箱已注册，请直接登录。")}`,
-    );
-  }
-
   if (error) {
     redirect(
       `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("注册失败，请稍后重试。")}`,
     );
   }
 
-  if (data.user && data.user.identities?.length === 0) {
-    redirect(
-      `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("该邮箱已注册，请直接登录。")}`,
-    );
-  }
-
   redirect(
-    `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("如果该邮箱未注册，会收到一封确认邮件。请检查收件箱或垃圾邮件。")}`,
+    `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("注册成功，请检查邮箱完成验证。")}`,
   );
 }
 

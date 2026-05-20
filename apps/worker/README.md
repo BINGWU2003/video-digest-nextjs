@@ -25,6 +25,8 @@ SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx
 ```
 
+开发模式会自动读取 `apps/worker/.env.local`。也可以直接通过系统环境变量注入同名配置。
+
 `SUPABASE_SERVICE_ROLE_KEY` 只允许在后台 worker 使用，不能暴露给浏览器。
 
 BullMQ 建议 Redis 版本至少为 6.2.0。Redis 5.x 可用于早期本地验证，但会输出版本提醒。

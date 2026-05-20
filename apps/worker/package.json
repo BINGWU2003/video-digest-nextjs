@@ -13,7 +13,8 @@
   "dependencies": {
     "@repo/database": "workspace:*",
     "@repo/queue": "workspace:*",
-    "@supabase/supabase-js": "catalog:"
+    "@supabase/supabase-js": "catalog:",
+    "dotenv": "catalog:"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

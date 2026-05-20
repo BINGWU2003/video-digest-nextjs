@@ -6,7 +6,11 @@ import {
   type VideoDigestWorkerHandle,
 } from "@repo/queue";
 import { createClient } from "@supabase/supabase-js";
-import { pathToFileURL } from "node:url";
+import { config as loadEnvFile } from "dotenv";
+import { dirname, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+loadWorkerEnv();
 
 type WorkerConfig = {
   redisUrl: string;
@@ -78,6 +82,22 @@ function readWorkerConfig(): WorkerConfig {
     supabaseUrl: supabaseUrl!,
     supabaseServiceRoleKey: supabaseServiceRoleKey!,
   };
+}
+
+function loadWorkerEnv() {
+  const currentDirectory = dirname(fileURLToPath(import.meta.url));
+  const appDirectory =
+    currentDirectory.endsWith(`${sep}src`) ||
+    currentDirectory.endsWith(`${sep}dist`)
+      ? resolve(currentDirectory, "..")
+      : currentDirectory;
+
+  for (const envFileName of [".env.local", "env.local"]) {
+    loadEnvFile({
+      path: resolve(appDirectory, envFileName),
+      quiet: true,
+    });
+  }
 }
 
 if (isEntryPoint()) {

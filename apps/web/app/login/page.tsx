@@ -1,8 +1,6 @@
 import Image from "next/image";
 
-import { Button } from "@/components/ui/button";
-
-import { signInWithPassword, signUpWithPassword } from "../auth/actions";
+import { LoginSubmitButtons } from "./submit-buttons";
 
 type LoginPageProps = {
   searchParams: Promise<{
@@ -88,12 +86,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               />
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button formAction={signInWithPassword}>登录</Button>
-              <Button formAction={signUpWithPassword} variant="outline">
-                注册
-              </Button>
-            </div>
+            <LoginSubmitButtons />
           </form>
 
           <p className="text-xs leading-5 text-slate-500">

@@ -71,3 +71,23 @@
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
 }
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    min-width: 320px;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}

@@ -57,6 +57,8 @@ create table public.user_profiles (
 | `id` | 与 `auth.users.id` 一致 |
 | `email` | 展示用邮箱，真实登录仍以 Supabase Auth 为准 |
 | `plan` | `free`、`pro`、`admin` 等套餐标识 |
+| `created_at` | 资料记录创建时间 |
+| `updated_at` | 资料记录最后更新时间 |
 
 ### video_records
 
@@ -125,6 +127,33 @@ created_by_type:
   scheduled
 ```
 
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 视频处理记录主键，也是页面详情页和 job payload 使用的 recordId |
+| `user_id` | 记录所属用户，关联 `auth.users.id`，用于 RLS 和资源归属校验 |
+| `source_url` | 用户或 agent 原始提交的视频链接 |
+| `normalized_url` | 归一化后的视频链接，用于重复任务检测和搜索 |
+| `platform` | 视频平台，当前支持 `youtube` 和 `bilibili` |
+| `title` | 视频标题，由 worker 获取元数据后写入 |
+| `author` | 视频作者、频道或 UP 主名称 |
+| `duration_seconds` | 视频时长，单位秒 |
+| `thumbnail_url` | 视频封面图地址 |
+| `status` | 当前处理状态，用于列表、详情页和 agent 查询进度 |
+| `transcript_source` | 最终采用的字幕来源，可能是人工字幕、自动字幕或 ASR |
+| `output_mode` | 用户期望输出类型：只要字幕、生成摘要或摘要并邮件投递 |
+| `fallback_to_audio` | 没有可用字幕时是否允许提取音频并转写 |
+| `send_email` | 创建任务时是否请求自动发送到默认已验证邮箱 |
+| `created_by_type` | 创建来源，用于区分网站、MCP agent、系统或定时任务 |
+| `created_by_id` | 创建者标识。网站用户可存 userId，MCP agent 可存 tokenId，系统任务可为空或存系统 actorId |
+| `error_code` | 结构化失败码，用于失败恢复和前端操作建议 |
+| `error_message` | 面向用户或运维排查的失败说明 |
+| `created_at` | 任务记录创建时间 |
+| `updated_at` | 任务记录最后更新时间 |
+| `completed_at` | 任务完成、失败或取消的时间 |
+| `deleted_at` | 软删除时间；为空表示记录仍可见 |
+
 ### transcripts
 
 一条视频记录的字幕或音频转写结果。
@@ -145,6 +174,20 @@ create table public.transcripts (
 
 MVP 可以先把字幕全文存在 `plain_text`。如果后续字幕很长或需要对象存储，再迁移到 `storage_key`。
 
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 字幕结果主键 |
+| `record_id` | 所属视频记录，关联 `video_records.id` |
+| `user_id` | 字幕所属用户，冗余保存便于 RLS 和查询过滤 |
+| `language` | 字幕语言，例如 `zh-CN`、`en`，未知时可为空 |
+| `source` | 字幕来源：人工字幕、自动字幕或 ASR |
+| `plain_text` | 字幕全文，MVP 阶段可直接存储在数据库中 |
+| `storage_key` | 对象存储 key，用于后续大文本或文件化字幕存储 |
+| `segment_count` | 字幕分段数量，对应 `transcript_segments` 行数 |
+| `created_at` | 字幕结果创建时间 |
+
 ### transcript_segments
 
 字幕分段表，用于详情页分段查看和后续按时间线引用来源。
@@ -161,6 +204,19 @@ create table public.transcript_segments (
   sort_order integer not null
 );
 ```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 字幕分段主键 |
+| `transcript_id` | 所属字幕结果，关联 `transcripts.id` |
+| `record_id` | 所属视频记录，冗余保存便于详情页查询和权限过滤 |
+| `user_id` | 分段所属用户，冗余保存便于 RLS 和查询过滤 |
+| `start_seconds` | 分段开始时间，单位秒，可包含小数 |
+| `end_seconds` | 分段结束时间，单位秒，可包含小数 |
+| `text` | 当前时间段内的字幕文本 |
+| `sort_order` | 分段排序序号，保证展示顺序稳定 |
 
 ### summaries
 
@@ -194,6 +250,25 @@ format:
   email_digest
 ```
 
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 摘要结果主键 |
+| `record_id` | 所属视频记录，关联 `video_records.id` |
+| `user_id` | 摘要所属用户，冗余保存便于 RLS 和查询过滤 |
+| `language` | 摘要语言，默认 `zh-CN` |
+| `format` | 摘要格式，例如简版、详细版或邮件摘要版 |
+| `title` | 摘要标题，可由模型生成或沿用视频标题 |
+| `short_summary` | 摘要的短概览，供列表和详情页首屏展示 |
+| `key_points` | 关键要点数组，使用 JSONB 存储结构化结果 |
+| `timeline` | 时间线摘要数组，通常包含时间点、主题和说明 |
+| `takeaways` | 结论、行动建议或可复用要点数组 |
+| `markdown` | 完整 Markdown 摘要内容，用于复制、邮件和导出 |
+| `model` | 生成摘要使用的模型名称 |
+| `prompt_version` | 摘要 prompt 版本，便于后续重生成和效果追踪 |
+| `created_at` | 摘要创建时间 |
+
 ### email_addresses
 
 用户已验证收件邮箱。邮件 tool 只能投递到这里的 verified 地址。
@@ -221,6 +296,21 @@ status:
   verified
   revoked
 ```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 邮箱记录主键，也是邮件投递 tool 使用的 toEmailId |
+| `user_id` | 邮箱所属用户，关联 `auth.users.id` |
+| `email` | 收件邮箱地址 |
+| `status` | 邮箱验证状态：待验证、已验证或已撤销 |
+| `is_default` | 是否为用户默认收件邮箱 |
+| `verification_token_hash` | 邮箱验证 token 的 hash，不保存明文 token |
+| `verification_sent_at` | 最近一次验证邮件发送时间 |
+| `verified_at` | 邮箱完成验证的时间 |
+| `last_sent_at` | 最近一次成功投递摘要邮件的时间 |
+| `created_at` | 邮箱记录创建时间 |
 
 约束建议：
 
@@ -267,6 +357,22 @@ status:
   cancelled
 ```
 
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 投递记录主键 |
+| `record_id` | 所属视频记录，关联 `video_records.id` |
+| `user_id` | 投递所属用户，冗余保存便于 RLS 和查询过滤 |
+| `summary_id` | 本次投递使用的摘要版本，摘要被删除时置空 |
+| `type` | 投递类型，当前主要为 `email`，后续可扩展 webhook |
+| `target_id` | 投递目标 ID。邮件投递时指向 `email_addresses.id` |
+| `status` | 投递状态：排队、已发送、失败或取消 |
+| `subject` | 邮件主题或 webhook 事件标题 |
+| `error_message` | 投递失败原因 |
+| `created_at` | 投递记录创建时间 |
+| `sent_at` | 成功发送时间 |
+
 ### mcp_tokens
 
 外部 agent 使用的 MCP token。只保存 hash，不保存明文 token。
@@ -300,6 +406,21 @@ email:send
 webhook:send
 ```
 
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | MCP token 记录主键，可作为 agent actor id 使用 |
+| `user_id` | token 所属用户，决定 agent 能访问的数据边界 |
+| `name` | token 名称，用于设置页展示，例如 Cursor 智能体 |
+| `token_prefix` | token 展示前缀，只用于用户识别，不可用于鉴权 |
+| `token_hash` | token hash，用于服务端鉴权，不保存明文 token |
+| `scopes` | token 权限范围数组，决定 agent 可调用的 tool |
+| `expires_at` | token 过期时间，为空表示长期有效 |
+| `last_used_at` | token 最近一次成功使用时间 |
+| `revoked_at` | token 撤销时间；为空表示未撤销 |
+| `created_at` | token 创建时间 |
+
 ### job_events
 
 任务状态流水。详情页处理时间线、失败诊断和 worker 调试都从这里读取。
@@ -315,6 +436,18 @@ create table public.job_events (
   created_at timestamptz not null default now()
 );
 ```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 任务事件主键 |
+| `record_id` | 所属视频记录，关联 `video_records.id` |
+| `user_id` | 事件所属用户，冗余保存便于 RLS 和查询过滤 |
+| `status` | 事件对应的任务状态或阶段 |
+| `message` | 状态说明、失败提示或 worker 日志摘要 |
+| `metadata` | 结构化事件元数据，例如 provider、耗时、重试次数 |
+| `created_at` | 事件发生时间 |
 
 ### usage_events
 
@@ -346,6 +479,18 @@ unit:
   count
   minute
 ```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 用量事件主键 |
+| `user_id` | 用量所属用户，关联 `auth.users.id` |
+| `record_id` | 关联的视频记录；非任务型用量可为空 |
+| `event_type` | 用量事件类型，例如创建任务、字幕提取、邮件发送 |
+| `quantity` | 本次事件计量值，例如 1 次或转写分钟数 |
+| `unit` | 计量单位，例如 `count` 或 `minute` |
+| `created_at` | 用量事件发生时间 |
 
 ## 关系图
 

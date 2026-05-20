@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { requireUser } from "@/lib/auth";
 
 import {
   AppShell,
@@ -10,9 +11,13 @@ import {
 import { MailIcon, TrashIcon } from "../../_components/icons";
 import { verifiedEmails } from "../../_data/mock-data";
 
-export default function EmailSettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function EmailSettingsPage() {
+  const user = await requireUser();
+
   return (
-    <AppShell current="/settings/emails">
+    <AppShell current="/settings/emails" userEmail={user.email}>
       <PageHeader
         eyebrow="邮箱设置"
         title="管理已验证收件人"

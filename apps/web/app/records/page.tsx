@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { requireUser } from "@/lib/auth";
 
 import {
   AppShell,
@@ -11,6 +12,8 @@ import {
 } from "../_components/app-shell";
 import { ArrowRightIcon, SearchIcon } from "../_components/icons";
 import { records, statusLabels } from "../_data/mock-data";
+
+export const dynamic = "force-dynamic";
 
 const statuses = ["全部", "排队中", "处理中", "已完成", "失败", "已投递"];
 const platforms = ["全部", "YouTube", "Bilibili"];
@@ -24,9 +27,11 @@ function statusTone(
   return "blue";
 }
 
-export default function RecordsPage() {
+export default async function RecordsPage() {
+  const user = await requireUser();
+
   return (
-    <AppShell current="/records">
+    <AppShell current="/records" userEmail={user.email}>
       <PageHeader
         eyebrow="记录"
         title="搜索所有提交过的视频"

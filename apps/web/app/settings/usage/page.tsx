@@ -1,3 +1,5 @@
+import { requireUser } from "@/lib/auth";
+
 import {
   AppShell,
   PageHeader,
@@ -7,9 +9,13 @@ import {
 } from "../../_components/app-shell";
 import { usageStats } from "../../_data/mock-data";
 
-export default function UsageSettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function UsageSettingsPage() {
+  const user = await requireUser();
+
   return (
-    <AppShell current="/settings/usage">
+    <AppShell current="/settings/usage" userEmail={user.email}>
       <PageHeader
         eyebrow="用量"
         title="查看额度和运行情况"

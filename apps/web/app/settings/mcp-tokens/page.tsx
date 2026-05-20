@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { requireUser } from "@/lib/auth";
 
 import {
   AppShell,
@@ -12,9 +13,13 @@ import { mcpTokens } from "../../_data/mock-data";
 
 const scopes = ["create:jobs", "read:records", "send:email"];
 
-export default function McpTokenSettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function McpTokenSettingsPage() {
+  const user = await requireUser();
+
   return (
-    <AppShell current="/settings/mcp-tokens">
+    <AppShell current="/settings/mcp-tokens" userEmail={user.email}>
       <PageHeader
         eyebrow="MCP 令牌设置"
         title="创建和撤销智能体访问权限"

@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 
+import { signOut } from "../auth/actions";
+
 const navigation = [
   { href: "/dashboard", label: "工作台" },
   { href: "/records", label: "记录" },
@@ -13,9 +15,10 @@ const navigation = [
 type AppShellProps = {
   children: React.ReactNode;
   current: string;
+  userEmail?: string;
 };
 
-export function AppShell({ children, current }: AppShellProps) {
+export function AppShell({ children, current, userEmail }: AppShellProps) {
   return (
     <main className="min-h-svh bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
@@ -34,21 +37,38 @@ export function AppShell({ children, current }: AppShellProps) {
               </span>
             </span>
           </Link>
-          <nav aria-label="主导航" className="flex flex-wrap gap-1">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                  current === item.href &&
-                    "bg-slate-900 text-white hover:bg-slate-900 hover:text-white",
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <div className="flex flex-col gap-3 lg:items-end">
+            <nav aria-label="主导航" className="flex flex-wrap gap-1">
+              {navigation.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                    current === item.href &&
+                      "bg-slate-900 text-white hover:bg-slate-900 hover:text-white",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+            {userEmail ? (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
+                  {userEmail}
+                </span>
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className="cursor-pointer rounded-md px-2 py-1 font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
+                    退出登录
+                  </button>
+                </form>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
       <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">

@@ -24,7 +24,7 @@ function statusTone(status: string) {
   return "blue";
 }
 
-export function DashboardPage() {
+export function DashboardPage({ userEmail }: { userEmail?: string }) {
   const completedCount = records.filter(
     (record) => record.status === "completed",
   ).length;
@@ -35,7 +35,7 @@ export function DashboardPage() {
   const audioUsage = usageStats.find((stat) => stat.label === "音频转写时长");
 
   return (
-    <AppShell current="/dashboard">
+    <AppShell current="/dashboard" userEmail={userEmail}>
       <PageHeader
         eyebrow="工作台"
         title="创建并追踪视频摘要"

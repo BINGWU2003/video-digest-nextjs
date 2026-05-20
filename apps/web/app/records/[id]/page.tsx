@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { requireUser } from "@/lib/auth";
 
 import {
   AppShell,
@@ -17,6 +18,8 @@ import {
   TrashIcon,
 } from "../../_components/icons";
 import { records, statusLabels } from "../../_data/mock-data";
+
+export const dynamic = "force-dynamic";
 
 function statusTone(
   status: string,
@@ -46,6 +49,7 @@ export default async function RecordDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const record = records.find((item) => item.id === id);
 
   if (!record) {
@@ -62,7 +66,7 @@ export default async function RecordDetailPage({
           : 3;
 
   return (
-    <AppShell current="/records">
+    <AppShell current="/records" userEmail={user.email}>
       <PageHeader
         eyebrow="记录详情"
         title={record.title}

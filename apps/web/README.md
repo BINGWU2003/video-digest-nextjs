@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/create-next-app).
+# 视频摘要 Web
 
-## Getting Started
+这是视频摘要产品的 Next.js Web 应用。
 
-First, run the development server:
+## 本地启动
+
+在仓库根目录运行：
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm --filter web dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开 [http://localhost:3000](http://localhost:3000)。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Supabase 登录配置
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
+复制环境变量示例：
 
-## Learn More
+```bash
+cp apps/web/env.local.example apps/web/.env.local
+```
 
-To learn more about Next.js, take a look at the following resources:
+然后填入 Supabase 项目配置：
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+如果你的 Supabase 项目仍使用旧版 anon key，也可以填：
 
-## Deploy on Vercel
+```bash
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+登录相关页面和路由：
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/login`：邮箱密码登录/注册
+- `/auth/callback`：邮箱确认和 PKCE 回调
+- `/dashboard`、`/records`、`/settings/*`：需要登录后访问
+
+Supabase 控制台里建议把本地回调地址加入允许列表：
+
+```txt
+http://localhost:3000/auth/callback
+```

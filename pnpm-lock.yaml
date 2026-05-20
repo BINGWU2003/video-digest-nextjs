@@ -12,6 +12,12 @@ catalogs:
     '@next/eslint-plugin-next':
       specifier: ^16.2.0
       version: 16.2.0
+    '@supabase/ssr':
+      specifier: ^0.10.3
+      version: 0.10.3
+    '@supabase/supabase-js':
+      specifier: ^2.106.0
+      version: 2.106.0
     '@tailwindcss/postcss':
       specifier: ^4.3.0
       version: 4.3.0
@@ -102,10 +108,10 @@ importers:
   apps/web:
     dependencies:
       '@supabase/ssr':
-        specifier: ^0.10.3
+        specifier: 'catalog:'
         version: 0.10.3(@supabase/supabase-js@2.106.0)
       '@supabase/supabase-js':
-        specifier: ^2.106.0
+        specifier: 'catalog:'
         version: 2.106.0
       class-variance-authority:
         specifier: 'catalog:'

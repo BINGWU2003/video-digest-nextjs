@@ -11,8 +11,8 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.10.3",
-    "@supabase/supabase-js": "^2.106.0",
+    "@supabase/ssr": "catalog:",
+    "@supabase/supabase-js": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "next": "catalog:",

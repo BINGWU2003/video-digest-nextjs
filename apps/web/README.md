@@ -25,7 +25,6 @@ cp apps/web/env.local.example apps/web/.env.local
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
-SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx
 ```
 
 如果你的 Supabase 项目仍使用旧版 anon key，也可以填：
@@ -33,8 +32,6 @@ SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx
 ```bash
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 ```
-
-`SUPABASE_SERVICE_ROLE_KEY` 只会在服务端使用，用来在注册前检查邮箱是否已存在。不要把它暴露到浏览器端，也不要加 `NEXT_PUBLIC_` 前缀。
 
 登录相关页面和路由：
 
@@ -46,26 +43,4 @@ Supabase 控制台里建议把本地回调地址加入允许列表：
 
 ```txt
 http://localhost:3000/auth/callback
-```
-
-## 邮箱重复校验
-
-注册前会通过 Supabase RPC 检查邮箱是否已经存在。需要先在 Supabase SQL Editor 执行：
-
-```sql
-create or replace function public.auth_email_exists(_email text)
-returns boolean
-language sql
-security definer
-set search_path = auth, public
-as $$
-  select exists (
-    select 1
-    from auth.users
-    where lower(auth.users.email) = lower(_email)
-  );
-$$;
-
-revoke all on function public.auth_email_exists(text) from public;
-grant execute on function public.auth_email_exists(text) to service_role;
 ```

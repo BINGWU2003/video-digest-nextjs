@@ -1,4 +1,9 @@
-import type { CreateVideoRecordInput, VideoRecordsRepository } from "@repo/database";
+import type {
+  CreateVideoRecordInput,
+  JobEventsRepository,
+  UsageEventsRepository,
+  VideoRecordsRepository,
+} from "@repo/database";
 import type { RecordCreatorType } from "@repo/database";
 import {
   type Actor,
@@ -8,6 +13,8 @@ import {
 
 type CreateVideoRecordDependencies = {
   videoRecordsRepository: VideoRecordsRepository;
+  jobEventsRepository: JobEventsRepository;
+  usageEventsRepository: UsageEventsRepository;
 };
 
 export type CreateVideoRecordCommand = {
@@ -34,7 +41,29 @@ export async function createVideoRecord(
     createdById: command.actor.id,
   };
 
-  return dependencies.videoRecordsRepository.create(recordInput);
+  const record = await dependencies.videoRecordsRepository.create(recordInput);
+
+  await dependencies.jobEventsRepository.create({
+    recordId: record.id,
+    userId: record.userId,
+    status: "queued",
+    message: "视频摘要任务已创建，等待后台处理。",
+    metadata: {
+      createdByType: record.createdByType,
+      outputMode: record.outputMode,
+      platform: record.platform,
+    },
+  });
+
+  await dependencies.usageEventsRepository.create({
+    userId: record.userId,
+    recordId: record.id,
+    eventType: "job_created",
+    quantity: 1,
+    unit: "count",
+  });
+
+  return record;
 }
 
 function resolveCreatorType(actor: Actor): RecordCreatorType {

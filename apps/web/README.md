@@ -72,7 +72,7 @@ pnpm --filter web build
 
 ## API 模板
 
-当前 `/api/mcp` 先实现最小 tool gateway，不是完整 MCP 协议实现。它接受当前登录用户 session，并调用后端模块创建一条真实 `video_records` 记录。
+当前 `/api/mcp` 先实现最小 tool gateway，不是完整 MCP 协议实现。它接受当前登录用户 session，并调用后端模块创建一条真实 `video_records` 记录，同时写入 `job_events` 的排队事件和 `usage_events` 的创建用量。
 
 请求示例：
 

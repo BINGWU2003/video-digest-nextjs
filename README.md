@@ -22,7 +22,7 @@ apps/
 
 packages/
   job-contracts/       跨层 zod schema、actor、job payload 和共享类型
-  database/            数据库类型、repository interface 和后续 Supabase 实现
+  database/            数据库类型、repository interface 和 Supabase 实现
   video-digest-core/   核心业务服务，不绑定 Next.js、MCP 或 BullMQ
   mcp-tools/           MCP tool 适配层
   queue/               队列名称、payload 和后续 BullMQ helper
@@ -40,18 +40,18 @@ supabase/migrations/   Supabase SQL migrations
 - Web 静态产品界面和 Supabase 登录骨架。
 - 数据库表结构设计文档。
 - 后端模块骨架。
-- `video-records` 模板链路：
+- `video-records` 创建链路、记录读取 API，以及任务事件/用量事件写入：
 
 ```txt
 create_video_digest_job
   -> @repo/video-digest-core createVideoRecord()
   -> @repo/database VideoRecordsRepository
+  -> @repo/database JobEventsRepository
+  -> @repo/database UsageEventsRepository
 ```
 
 暂未完成：
 
-- 真实 Supabase repository 实现。
-- Next.js `/api/mcp` endpoint。
 - BullMQ/Redis 入队与 worker 消费。
 - 视频 provider、ASR、LLM summary 和邮件投递实现。
 

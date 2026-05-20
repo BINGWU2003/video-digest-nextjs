@@ -1,4 +1,8 @@
-import { createSupabaseVideoRecordsRepository } from "@repo/database";
+import {
+  createSupabaseJobEventsRepository,
+  createSupabaseUsageEventsRepository,
+  createSupabaseVideoRecordsRepository,
+} from "@repo/database";
 import { createVideoDigestJobInputSchema } from "@repo/job-contracts";
 import { createVideoDigestJobTool } from "@repo/mcp-tools";
 import { NextResponse, type NextRequest } from "next/server";
@@ -60,6 +64,8 @@ export async function POST(request: NextRequest) {
 
   const handler = tool.createHandler({
     videoRecordsRepository: createSupabaseVideoRecordsRepository(supabase),
+    jobEventsRepository: createSupabaseJobEventsRepository(supabase),
+    usageEventsRepository: createSupabaseUsageEventsRepository(supabase),
   });
 
   try {

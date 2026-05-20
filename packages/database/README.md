@@ -27,8 +27,20 @@ src/tables.ts
 src/repositories/video-records.ts
   VideoRecordsRepository 模板。
 
+src/repositories/job-events.ts
+  JobEventsRepository，用于记录任务生命周期事件。
+
+src/repositories/usage-events.ts
+  UsageEventsRepository，用于记录任务创建、转写、邮件等用量事件。
+
 src/supabase/video-records-repository.ts
   Supabase 版 video_records repository，实现 create、findByIdForUser、listForUser。
+
+src/supabase/job-events-repository.ts
+  Supabase 版 job_events repository，实现 create。
+
+src/supabase/usage-events-repository.ts
+  Supabase 版 usage_events repository，实现 create。
 ```
 
 ## Migration

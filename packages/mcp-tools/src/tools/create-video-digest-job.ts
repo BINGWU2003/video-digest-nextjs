@@ -1,4 +1,8 @@
-import type { VideoRecordsRepository } from "@repo/database";
+import type {
+  JobEventsRepository,
+  UsageEventsRepository,
+  VideoRecordsRepository,
+} from "@repo/database";
 import {
   type CreateVideoDigestJobInput,
   type CreateVideoDigestJobOutput,
@@ -10,6 +14,8 @@ import type { ToolDefinition } from "../tool-definition.js";
 
 type CreateVideoDigestJobDependencies = {
   videoRecordsRepository: VideoRecordsRepository;
+  jobEventsRepository: JobEventsRepository;
+  usageEventsRepository: UsageEventsRepository;
 };
 
 export const createVideoDigestJobTool: ToolDefinition<

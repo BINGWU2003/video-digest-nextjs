@@ -5,6 +5,7 @@ import type {
   VideoRecordsRepository,
 } from "../repositories/video-records.js";
 import type { VideoRecordRow } from "../tables.js";
+import { DatabaseQueryError } from "./database-query-error.js";
 
 type SupabaseVideoRecordRow = {
   id: string;
@@ -42,16 +43,6 @@ type SupabaseCreateVideoRecordInput = {
   created_by_type: VideoRecordRow["createdByType"];
   created_by_id: string | null;
 };
-
-export class DatabaseQueryError extends Error {
-  constructor(
-    message: string,
-    readonly cause: unknown,
-  ) {
-    super(message);
-    this.name = "DatabaseQueryError";
-  }
-}
 
 export function createSupabaseVideoRecordsRepository(
   client: SupabaseClient,

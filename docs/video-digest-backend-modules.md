@@ -2,7 +2,7 @@
 
 ## 目标
 
-本文档记录第一版后端项目骨架。当前阶段只划分模块边界，并实现一个 `video-records` 模板模块，等模板验收后再继续扩展 MCP endpoint、队列和 worker 业务。
+本文档记录第一版后端项目骨架。当前阶段先划分模块边界，并围绕 `create_video_digest_job` 逐步补齐创建任务、任务事件和用量事件链路。
 
 ## 模块划分
 
@@ -11,7 +11,7 @@ packages/job-contracts
   共享输入输出契约。放 zod schema、job payload、actor、枚举等跨层类型。
 
 packages/database
-  数据库边界。放表类型、repository interface、后续 Supabase/Postgres 实现。
+  数据库边界。放表类型、repository interface、Supabase/Postgres 实现和 SQL 结果映射。
 
 packages/video-digest-core
   核心业务。放视频任务创建、状态流转、字幕、摘要、投递等业务服务。
@@ -28,7 +28,7 @@ apps/worker
 
 ## 当前模板
 
-本次只实现 `video-records` 模板：
+当前已实现 `video-records` 创建模板，并补充任务事件与用量事件写入：
 
 ```txt
 packages/job-contracts
@@ -41,17 +41,30 @@ packages/database
     VideoRecordsRepository
     CreateVideoRecordInput
     VideoRecordRow
+  src/repositories/job-events.ts
+    JobEventsRepository
+    CreateJobEventInput
+    JobEventRow
+  src/repositories/usage-events.ts
+    UsageEventsRepository
+    CreateUsageEventInput
+    UsageEventRow
+  src/supabase/*-repository.ts
+    Supabase repository 实现
 
 packages/video-digest-core
   src/modules/video-records/create-video-record.ts
     createVideoRecord()
+    创建 video_records
+    创建 job_events queued 事件
+    创建 usage_events job_created 事件
 
 packages/mcp-tools
   src/tools/create-video-digest-job.ts
     createVideoDigestJobTool
 ```
 
-这个模板暂时不做真实数据库写入，只通过 repository interface 把数据库实现隔离出去。下一步接 Supabase 时，只需要在 `packages/database` 增加具体 repository 实现，不需要改 core service 的业务入口。
+这个模板已经通过 repository interface 接入 Supabase 实现。当前仍未引入队列事务或 worker 执行，下一步建议补 `queue enqueue` 边界，让创建任务后可以投递后台处理任务。
 
 ## 调用方向
 
@@ -59,6 +72,7 @@ packages/mcp-tools
 MCP Tool
   -> video-digest-core
   -> database repository interface
+  -> Supabase repository
 ```
 
 禁止反向依赖：
@@ -73,6 +87,6 @@ MCP Tool
 当前阶段验收这几件事：
 
 1. 模块边界是否符合文档预期。
-2. `video-records` 模板是否足够清楚，可复制到 transcript、summary、delivery。
-3. 是否继续沿用 repository interface 方式接 Supabase。
-4. 是否需要调整包名或目录层级。
+2. `video-records`、`job-events`、`usage-events` 模板是否足够清楚，可复制到 transcript、summary、delivery。
+3. 是否继续沿用 repository interface 方式扩展后续模块。
+4. 是否需要在下一步引入队列投递或数据库事务封装。

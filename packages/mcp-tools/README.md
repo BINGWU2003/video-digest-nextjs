@@ -25,6 +25,7 @@ src/tool-definition.ts
 
 src/tools/create-video-digest-job.ts
   createVideoDigestJobTool
+  调用 core service 创建视频记录、任务事件和用量事件
 ```
 
 ## 常用命令

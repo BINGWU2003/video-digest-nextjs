@@ -24,6 +24,7 @@ src/modules/video-records/create-video-record.ts
   平台识别
   URL 归一化
   actor 到 created_by_type 的映射
+  创建 video_records 后追加 queued 任务事件和 job_created 用量事件
 ```
 
 ## 调用方向

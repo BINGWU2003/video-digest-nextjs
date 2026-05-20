@@ -8,6 +8,7 @@
 
 - 架构文档关注 MCP、tools、worker、provider 和服务边界。
 - 本文档关注用户页面、操作流程、数据展示和产品体验。
+- 数据库表结构见 `video-digest-database-schema.md`。
 
 ## 产品定位
 

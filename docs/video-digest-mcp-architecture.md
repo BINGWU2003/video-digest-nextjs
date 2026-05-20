@@ -11,6 +11,8 @@
 - Next.js 内部需要使用这些能力时，通过服务端 LangChain MCP client 调用同一个 MCP endpoint。
 - 真实业务实现放在 core packages 中，MCP tools 只负责协议、schema、权限和调用编排。
 
+数据库表结构见 `video-digest-database-schema.md`。MVP 采用 Supabase Postgres、SQL migrations 和 Row Level Security。
+
 ## 核心原则
 
 1. MCP 是能力契约层，不是业务实现层。
@@ -58,6 +60,8 @@ flowchart TD
 ```
 
 ## 推荐目录结构
+
+当前后端模块骨架和模板说明见 `video-digest-backend-modules.md`。
 
 ```txt
 apps/

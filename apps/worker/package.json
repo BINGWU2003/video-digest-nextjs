@@ -1,0 +1,24 @@
+{
+  "name": "worker",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "check-types": "tsc --noEmit",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint .",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@repo/queue": "workspace:*"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "tsx": "^4.20.6",
+    "typescript": "catalog:"
+  }
+}

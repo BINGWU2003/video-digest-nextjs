@@ -22,7 +22,7 @@
 ```txt
 src/index.ts
   -> startWorker()
-  -> 输出待监听队列名称
+  -> 输出待监听队列名称和 job 名称
 ```
 
 ## 常用命令

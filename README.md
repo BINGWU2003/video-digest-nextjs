@@ -25,7 +25,7 @@ packages/
   database/            数据库类型、repository interface 和 Supabase 实现
   video-digest-core/   核心业务服务，不绑定 Next.js、MCP 或 BullMQ
   mcp-tools/           MCP tool 适配层
-  queue/               队列名称、payload 和后续 BullMQ helper
+  queue/               队列名称、job 名称、payload、enqueue 接口和后续 BullMQ helper
   eslint-config/       共享 ESLint 配置
   typescript-config/   共享 TypeScript 配置
 
@@ -40,7 +40,7 @@ supabase/migrations/   Supabase SQL migrations
 - Web 静态产品界面和 Supabase 登录骨架。
 - 数据库表结构设计文档。
 - 后端模块骨架。
-- `video-records` 创建链路、记录读取 API，以及任务事件/用量事件写入：
+- `video-records` 创建链路、记录读取 API、任务事件/用量事件写入，以及 no-op 队列投递边界：
 
 ```txt
 create_video_digest_job
@@ -48,11 +48,12 @@ create_video_digest_job
   -> @repo/database VideoRecordsRepository
   -> @repo/database JobEventsRepository
   -> @repo/database UsageEventsRepository
+  -> @repo/queue VideoDigestQueue
 ```
 
 暂未完成：
 
-- BullMQ/Redis 入队与 worker 消费。
+- BullMQ/Redis 实际队列入队与 worker 消费。
 - 视频 provider、ASR、LLM summary 和邮件投递实现。
 
 ## 本地开发

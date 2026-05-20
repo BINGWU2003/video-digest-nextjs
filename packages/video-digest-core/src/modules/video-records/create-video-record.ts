@@ -10,11 +10,13 @@ import {
   type CreateVideoDigestJobInput,
   createVideoDigestJobInputSchema,
 } from "@repo/job-contracts";
+import type { VideoDigestQueue } from "@repo/queue";
 
 type CreateVideoRecordDependencies = {
   videoRecordsRepository: VideoRecordsRepository;
   jobEventsRepository: JobEventsRepository;
   usageEventsRepository: UsageEventsRepository;
+  videoDigestQueue: VideoDigestQueue;
 };
 
 export type CreateVideoRecordCommand = {
@@ -61,6 +63,11 @@ export async function createVideoRecord(
     eventType: "job_created",
     quantity: 1,
     unit: "count",
+  });
+
+  await dependencies.videoDigestQueue.enqueueVideoDigestJob({
+    recordId: record.id,
+    userId: record.userId,
   });
 
   return record;

@@ -119,6 +119,9 @@ importers:
       '@repo/mcp-tools':
         specifier: workspace:*
         version: link:../../packages/mcp-tools
+      '@repo/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
       '@supabase/ssr':
         specifier: 'catalog:'
         version: 0.10.3(@supabase/supabase-js@2.106.0)
@@ -330,6 +333,9 @@ importers:
       '@repo/job-contracts':
         specifier: workspace:*
         version: link:../job-contracts
+      '@repo/queue':
+        specifier: workspace:*
+        version: link:../queue
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*

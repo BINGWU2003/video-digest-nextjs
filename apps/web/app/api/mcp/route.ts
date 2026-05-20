@@ -5,6 +5,7 @@ import {
 } from "@repo/database";
 import { createVideoDigestJobInputSchema } from "@repo/job-contracts";
 import { createVideoDigestJobTool } from "@repo/mcp-tools";
+import { createNoopVideoDigestQueue } from "@repo/queue";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
     videoRecordsRepository: createSupabaseVideoRecordsRepository(supabase),
     jobEventsRepository: createSupabaseJobEventsRepository(supabase),
     usageEventsRepository: createSupabaseUsageEventsRepository(supabase),
+    videoDigestQueue: createNoopVideoDigestQueue(),
   });
 
   try {

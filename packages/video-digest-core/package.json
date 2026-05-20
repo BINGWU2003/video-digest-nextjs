@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@repo/database": "workspace:*",
-    "@repo/job-contracts": "workspace:*"
+    "@repo/job-contracts": "workspace:*",
+    "@repo/queue": "workspace:*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

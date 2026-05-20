@@ -14,6 +14,7 @@
     "@repo/database": "workspace:*",
     "@repo/job-contracts": "workspace:*",
     "@repo/mcp-tools": "workspace:*",
+    "@repo/queue": "workspace:*",
     "@supabase/ssr": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "class-variance-authority": "catalog:",

@@ -31,6 +31,8 @@ SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx
 
 BullMQ 建议 Redis 版本至少为 6.2.0。Redis 5.x 可用于早期本地验证，但会输出版本提醒。
 
+Node.js 20 没有原生 WebSocket，worker 通过 `ws` 包为 Supabase client 提供 Realtime transport。当前 worker 只使用数据库写入能力，不主动订阅 Realtime。
+
 ## 当前状态
 
 当前 worker 会消费 `video-digest` 队列里的 `process-video-digest` job：

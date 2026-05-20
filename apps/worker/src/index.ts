@@ -9,8 +9,16 @@ import { createClient } from "@supabase/supabase-js";
 import { config as loadEnvFile } from "dotenv";
 import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import WebSocket from "ws";
 
 loadWorkerEnv();
+
+type SupabaseClientOptions = NonNullable<Parameters<typeof createClient>[2]>;
+type RealtimeTransport = NonNullable<
+  NonNullable<SupabaseClientOptions["realtime"]>["transport"]
+>;
+
+const websocketTransport = WebSocket as unknown as RealtimeTransport;
 
 type WorkerConfig = {
   redisUrl: string;
@@ -26,6 +34,9 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
       auth: {
         autoRefreshToken: false,
         persistSession: false,
+      },
+      realtime: {
+        transport: websocketTransport,
       },
     },
   );

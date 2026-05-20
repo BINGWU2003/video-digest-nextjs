@@ -41,6 +41,7 @@ supabase/migrations/   Supabase SQL migrations
 - 数据库表结构设计文档。
 - 后端模块骨架。
 - `video-records` 创建链路、记录读取 API、任务事件/用量事件写入，以及 BullMQ/Redis 队列 producer/consumer 边界：
+- 视频元数据 provider interface 骨架：
 
 ```txt
 create_video_digest_job
@@ -50,6 +51,10 @@ create_video_digest_job
   -> @repo/database UsageEventsRepository
   -> @repo/queue VideoDigestQueue
   -> apps/worker job_events(fetching_metadata)
+
+@repo/video-digest-core fetchVideoMetadata()
+  -> VideoMetadataProvider
+  -> YouTube/Bilibili provider placeholder
 ```
 
 暂未完成：

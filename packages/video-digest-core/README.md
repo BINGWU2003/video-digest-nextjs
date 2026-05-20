@@ -27,7 +27,17 @@ src/modules/video-records/create-video-record.ts
   actor 到 created_by_type 的映射
   创建 video_records 后追加 queued 任务事件和 job_created 用量事件
   调用 VideoDigestQueue 投递后台处理 payload
+
+src/modules/video-metadata/
+  VideoMetadata
+  VideoMetadataProvider
+  fetchVideoMetadata()
+  createVideoMetadataProviderRegistry()
+  createYoutubeVideoMetadataProvider()
+  createBilibiliVideoMetadataProvider()
 ```
+
+当前 YouTube/Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。下一步接真实抓取时，只替换 provider 内部实现，调用方继续使用统一接口。
 
 ## 调用方向
 
@@ -48,7 +58,7 @@ pnpm --filter @repo/video-digest-core build
 
 ## 后续计划
 
-1. 增加 transcript 模块。
-2. 增加 summary 模块。
-3. 增加 delivery 模块。
-4. 将 no-op queue 替换为 BullMQ/Redis 实现。
+1. 接入真实视频元数据 provider。
+2. 增加 transcript 模块。
+3. 增加 summary 模块。
+4. 增加 delivery 模块。

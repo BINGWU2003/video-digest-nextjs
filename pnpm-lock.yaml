@@ -110,6 +110,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@repo/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@repo/job-contracts':
+        specifier: workspace:*
+        version: link:../../packages/job-contracts
+      '@repo/mcp-tools':
+        specifier: workspace:*
+        version: link:../../packages/mcp-tools
       '@supabase/ssr':
         specifier: 'catalog:'
         version: 0.10.3(@supabase/supabase-js@2.106.0)

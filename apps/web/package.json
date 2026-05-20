@@ -11,6 +11,9 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@repo/database": "workspace:*",
+    "@repo/job-contracts": "workspace:*",
+    "@repo/mcp-tools": "workspace:*",
     "@supabase/ssr": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "class-variance-authority": "catalog:",

@@ -51,6 +51,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 - `/login`：邮箱密码登录/注册
 - `/auth/callback`：邮箱确认和 PKCE 回调
 - `/dashboard`、`/records`、`/settings/*`：需要登录后访问
+- `/api/mcp`：MCP tool gateway 模板，当前支持 `create_video_digest_job`
 
 Supabase 控制台里建议把本地回调地址加入允许列表：
 
@@ -65,6 +66,25 @@ pnpm --filter web dev
 pnpm --filter web lint
 pnpm --filter web check-types
 pnpm --filter web build
+```
+
+## API 模板
+
+当前 `/api/mcp` 先实现最小 tool gateway，不是完整 MCP 协议实现。它接受当前登录用户 session，并调用后端模块创建一条真实 `video_records` 记录。
+
+请求示例：
+
+```json
+{
+  "tool": "create_video_digest_job",
+  "input": {
+    "url": "https://www.youtube.com/watch?v=...",
+    "platform": "auto",
+    "outputMode": "summary",
+    "fallbackToAudio": false,
+    "sendEmail": false
+  }
+}
 ```
 
 ## 相关文档

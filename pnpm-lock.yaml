@@ -192,9 +192,15 @@ importers:
 
   apps/worker:
     dependencies:
+      '@repo/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@repo/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.106.0
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*

@@ -11,7 +11,7 @@ Video Digest 是一个基于 Next.js 的视频摘要产品。用户可以提交 
 - Auth: Supabase Auth
 - Database: Supabase Postgres + SQL migrations + RLS
 - Contracts: Zod
-- Worker: TypeScript Node.js 模板，队列 producer 已接 BullMQ/Redis
+- Worker: TypeScript Node.js，队列 producer/consumer 已接 BullMQ/Redis
 
 ## 目录结构
 
@@ -40,7 +40,7 @@ supabase/migrations/   Supabase SQL migrations
 - Web 静态产品界面和 Supabase 登录骨架。
 - 数据库表结构设计文档。
 - 后端模块骨架。
-- `video-records` 创建链路、记录读取 API、任务事件/用量事件写入，以及 BullMQ/Redis 队列 producer 边界：
+- `video-records` 创建链路、记录读取 API、任务事件/用量事件写入，以及 BullMQ/Redis 队列 producer/consumer 边界：
 
 ```txt
 create_video_digest_job
@@ -49,11 +49,12 @@ create_video_digest_job
   -> @repo/database JobEventsRepository
   -> @repo/database UsageEventsRepository
   -> @repo/queue VideoDigestQueue
+  -> apps/worker job_events(fetching_metadata)
 ```
 
 暂未完成：
 
-- BullMQ worker 消费。
+- worker 侧完整任务状态流转。
 - 视频 provider、ASR、LLM summary 和邮件投递实现。
 
 ## 本地开发
@@ -104,6 +105,8 @@ REDIS_URL=redis://localhost:6379
 ```
 
 未填写 `REDIS_URL` 时，创建任务会使用 no-op 队列，不写入 Redis。
+
+BullMQ 建议 Redis 版本至少为 6.2.0；Redis 5.x 可用于早期本地验证，但会输出版本提醒。
 
 如果项目仍使用旧版 anon key，也可以填：
 

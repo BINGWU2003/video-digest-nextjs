@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 
 export const videoDigestQueueName = "video-digest";
@@ -32,6 +32,36 @@ export type VideoDigestQueue = {
 export type BullMqVideoDigestQueueOptions = {
   /** Redis 连接地址，例如 redis://localhost:6379。 */
   redisUrl: string;
+};
+
+export type VideoDigestWorkerContext = {
+  /** BullMQ 返回的 job ID。 */
+  queueJobId: string | null;
+  /** 当前 job 已经尝试执行的次数。 */
+  attemptsMade: number;
+};
+
+export type VideoDigestJobProcessor = (
+  payload: VideoDigestQueuePayload,
+  context: VideoDigestWorkerContext,
+) => Promise<void>;
+
+export type VideoDigestWorkerHandle = {
+  /** 正在监听的队列名称。 */
+  queueName: typeof videoDigestQueueName;
+  /** 正在消费的 job 名称。 */
+  jobName: typeof videoDigestJobName;
+  /** 关闭 worker 和 Redis 连接。 */
+  close(): Promise<void>;
+};
+
+export type BullMqVideoDigestWorkerOptions = {
+  /** Redis 连接地址，例如 redis://localhost:6379。 */
+  redisUrl: string;
+  /** 单个 worker 进程内并发处理的 job 数。 */
+  concurrency?: number;
+  /** 实际处理视频摘要 job 的回调。 */
+  processor: VideoDigestJobProcessor;
 };
 
 export function createNoopVideoDigestQueue(): VideoDigestQueue {
@@ -79,6 +109,41 @@ export function createBullMqVideoDigestQueue(
         queueJobId: job.id ?? null,
         payload,
       };
+    },
+  };
+}
+
+export function createBullMqVideoDigestWorker(
+  options: BullMqVideoDigestWorkerOptions,
+): VideoDigestWorkerHandle {
+  const connection = new Redis(options.redisUrl, {
+    maxRetriesPerRequest: null,
+  });
+
+  const worker = new Worker<VideoDigestQueuePayload>(
+    videoDigestQueueName,
+    async (job) => {
+      if (job.name !== videoDigestJobName) {
+        throw new Error(`Unsupported video digest job: ${job.name}`);
+      }
+
+      await options.processor(job.data, {
+        queueJobId: job.id ?? null,
+        attemptsMade: job.attemptsMade,
+      });
+    },
+    {
+      concurrency: options.concurrency ?? 1,
+      connection,
+    },
+  );
+
+  return {
+    queueName: videoDigestQueueName,
+    jobName: videoDigestJobName,
+    async close() {
+      await worker.close();
+      await connection.quit();
     },
   };
 }

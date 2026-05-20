@@ -27,8 +27,11 @@ src/index.ts
   VideoDigestQueuePayload
   EnqueuedVideoDigestJob
   VideoDigestQueue
+  VideoDigestJobProcessor
+  VideoDigestWorkerHandle
   createNoopVideoDigestQueue()
   createBullMqVideoDigestQueue()
+  createBullMqVideoDigestWorker()
 ```
 
 `createNoopVideoDigestQueue()` 只返回标准 enqueue 结果，不会真正写入 Redis。`createBullMqVideoDigestQueue()` 使用 BullMQ `Queue.add()` 写入 Redis，并设置：
@@ -46,8 +49,12 @@ pnpm --filter @repo/queue check-types
 pnpm --filter @repo/queue build
 ```
 
+`createBullMqVideoDigestWorker()` 使用 BullMQ `Worker` 消费 `process-video-digest` job。worker 侧 Redis 连接使用 `maxRetriesPerRequest: null`，适合常驻后台进程持续等待 Redis 恢复。
+
+BullMQ 当前建议 Redis 版本至少为 6.2.0。Redis 5.x 可能仍能完成基础入队和消费，但运行时会输出版本提醒，后续本地和生产环境建议升级到 Redis 6.2+。
+
 ## 后续计划
 
-1. 增加 `createVideoDigestWorker()`。
-2. 增加 worker 侧任务状态流转。
-3. 增加失败重试和死信处理策略。
+1. 增加 worker 侧完整任务状态流转。
+2. 增加失败重试和死信处理策略。
+3. 接入视频 provider、字幕提取和摘要生成。

@@ -47,3 +47,25 @@ Supabase 控制台里建议把本地回调地址加入允许列表：
 ```txt
 http://localhost:3000/auth/callback
 ```
+
+## 邮箱重复校验
+
+注册前会通过 Supabase RPC 检查邮箱是否已经存在。需要先在 Supabase SQL Editor 执行：
+
+```sql
+create or replace function public.auth_email_exists(_email text)
+returns boolean
+language sql
+security definer
+set search_path = auth, public
+as $$
+  select exists (
+    select 1
+    from auth.users
+    where lower(auth.users.email) = lower(_email)
+  );
+$$;
+
+revoke all on function public.auth_email_exists(text) from public;
+grant execute on function public.auth_email_exists(text) to service_role;
+```

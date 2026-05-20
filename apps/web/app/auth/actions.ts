@@ -132,6 +132,12 @@ export async function signUpWithPassword(formData: FormData) {
     );
   }
 
+  if (existingUser === null) {
+    redirect(
+      `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("邮箱校验暂不可用，请稍后重试。")}`,
+    );
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email,

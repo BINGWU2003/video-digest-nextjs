@@ -52,6 +52,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 - `/auth/callback`：邮箱确认和 PKCE 回调
 - `/dashboard`、`/records`、`/settings/*`：需要登录后访问
 - `/api/mcp`：MCP tool gateway 模板，当前支持 `create_video_digest_job`
+- `/api/records`：读取当前用户的视频记录列表，支持 `status`、`platform`、`limit`、`offset`
+- `/api/records/[id]`：读取当前用户的一条视频记录详情
 
 Supabase 控制台里建议把本地回调地址加入允许列表：
 
@@ -85,6 +87,18 @@ pnpm --filter web build
     "sendEmail": false
   }
 }
+```
+
+记录列表：
+
+```txt
+GET /api/records?status=queued&platform=youtube&limit=20&offset=0
+```
+
+记录详情：
+
+```txt
+GET /api/records/{recordId}
 ```
 
 ## 相关文档

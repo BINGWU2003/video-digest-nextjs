@@ -8,34 +8,34 @@ import type { VideoRecordRow } from "../tables.js";
 export type { VideoRecordRow } from "../tables.js";
 
 export type CreateVideoRecordInput = {
-  /** Owner user id from Supabase Auth. */
+  /** 记录所属用户 ID，来自 Supabase Auth。 */
   userId: string;
-  /** Original video URL submitted by the user or agent. */
+  /** 用户或 agent 原始提交的视频链接。 */
   sourceUrl: string;
-  /** Normalized video URL used for duplicate detection and search. */
+  /** 归一化后的视频链接，用于重复检测和搜索。 */
   normalizedUrl: string;
-  /** Source platform for the submitted video. */
+  /** 提交视频的来源平台。 */
   platform: VideoPlatform;
-  /** Requested output mode for this task. */
+  /** 本次任务请求的输出模式。 */
   outputMode: OutputMode;
-  /** Whether the worker may use audio extraction and ASR when subtitles are unavailable. */
+  /** 没有可用字幕时，worker 是否可以提取音频并使用 ASR。 */
   fallbackToAudio: boolean;
-  /** Whether this task should send the summary to the user's default verified email. */
+  /** 本次任务是否需要把摘要发送到用户默认已验证邮箱。 */
   sendEmail: boolean;
-  /** Source that created this record. */
+  /** 创建这条记录的来源。 */
   createdByType: RecordCreatorType;
-  /** Creator identifier, such as MCP token id or user id. */
+  /** 创建者标识，例如 MCP token ID 或用户 ID。 */
   createdById: string | null;
 };
 
 export type VideoRecordsRepository = {
-  /** Create a queued video record and return the persisted row. */
+  /** 创建一条排队中的视频记录，并返回已持久化的数据行。 */
   create(input: CreateVideoRecordInput): Promise<VideoRecordRow>;
-  /** Find a visible record by id within the given user's ownership boundary. */
+  /** 在指定用户的数据边界内按 ID 查找一条可见记录。 */
   findByIdForUser(input: {
-    /** Video record id. */
+    /** 视频记录 ID。 */
     id: string;
-    /** Owner user id from Supabase Auth. */
+    /** 记录所属用户 ID，来自 Supabase Auth。 */
     userId: string;
   }): Promise<VideoRecordRow | null>;
 };

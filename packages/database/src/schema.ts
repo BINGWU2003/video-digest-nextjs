@@ -1,4 +1,4 @@
-/** Video record lifecycle statuses persisted in `video_records.status`. */
+/** `video_records.status` 使用的视频处理生命周期状态。 */
 export const videoRecordStatuses = [
   "queued",
   "fetching_metadata",
@@ -12,24 +12,24 @@ export const videoRecordStatuses = [
   "cancelled",
 ] as const;
 
-/** Video platforms supported by `video_records.platform`. */
+/** `video_records.platform` 支持的视频平台。 */
 export const videoPlatforms = ["youtube", "bilibili"] as const;
 
-/** Transcript source values persisted in `video_records.transcript_source` and `transcripts.source`. */
+/** `video_records.transcript_source` 和 `transcripts.source` 使用的字幕来源。 */
 export const transcriptSources = [
   "manual_subtitle",
   "auto_subtitle",
   "asr",
 ] as const;
 
-/** Requested output modes persisted in `video_records.output_mode`. */
+/** `video_records.output_mode` 使用的任务输出模式。 */
 export const outputModes = [
   "transcript",
   "summary",
   "summary_and_email",
 ] as const;
 
-/** Sources that can create a video record, persisted in `video_records.created_by_type`. */
+/** `video_records.created_by_type` 使用的记录创建来源。 */
 export const recordCreatorTypes = [
   "web",
   "mcp_agent",
@@ -37,16 +37,16 @@ export const recordCreatorTypes = [
   "scheduled",
 ] as const;
 
-/** Summary formats persisted in `summaries.format`. */
+/** `summaries.format` 使用的摘要格式。 */
 export const summaryFormats = ["brief", "detailed", "email_digest"] as const;
 
-/** Email verification states persisted in `email_addresses.status`. */
+/** `email_addresses.status` 使用的邮箱验证状态。 */
 export const emailAddressStatuses = ["pending", "verified", "revoked"] as const;
 
-/** Delivery target types persisted in `delivery_records.type`. */
+/** `delivery_records.type` 使用的投递目标类型。 */
 export const deliveryTypes = ["email", "webhook"] as const;
 
-/** Delivery lifecycle states persisted in `delivery_records.status`. */
+/** `delivery_records.status` 使用的投递生命周期状态。 */
 export const deliveryStatuses = [
   "queued",
   "sent",
@@ -54,7 +54,7 @@ export const deliveryStatuses = [
   "cancelled",
 ] as const;
 
-/** Usage event types persisted in `usage_events.event_type`. */
+/** `usage_events.event_type` 使用的用量事件类型。 */
 export const usageEventTypes = [
   "job_created",
   "transcript_extracted",
@@ -63,7 +63,7 @@ export const usageEventTypes = [
   "job_failed",
 ] as const;
 
-/** Usage units persisted in `usage_events.unit`. */
+/** `usage_events.unit` 使用的用量计量单位。 */
 export const usageUnits = ["count", "minute"] as const;
 
 export type VideoRecordStatus = (typeof videoRecordStatuses)[number];

@@ -13,237 +13,237 @@ import type {
 } from "./schema.js";
 
 export type UserProfileRow = {
-  /** User profile primary key. Matches `auth.users.id`. */
+  /** 用户资料主键，与 `auth.users.id` 保持一致。 */
   id: string;
-  /** Display email copied from Supabase Auth for convenient reads. */
+  /** 展示用邮箱，从 Supabase Auth 同步，便于页面读取。 */
   email: string | null;
-  /** Billing or access plan identifier, such as free, pro, or admin. */
+  /** 计费或访问套餐标识，例如 free、pro、admin。 */
   plan: string;
-  /** Time when the profile row was created. */
+  /** 用户资料记录创建时间。 */
   createdAt: Date;
-  /** Time when the profile row was last updated. */
+  /** 用户资料记录最后更新时间。 */
   updatedAt: Date;
 };
 
 export type VideoRecordRow = {
-  /** Video record primary key. Used by detail pages and queue payloads as recordId. */
+  /** 视频处理记录主键，详情页和队列 payload 会作为 recordId 使用。 */
   id: string;
-  /** Owner user id from Supabase Auth. Used for RLS and resource ownership checks. */
+  /** 记录所属用户 ID，来自 Supabase Auth，用于 RLS 和资源归属校验。 */
   userId: string;
-  /** Original video URL submitted by the user or agent. */
+  /** 用户或 agent 原始提交的视频链接。 */
   sourceUrl: string;
-  /** Normalized video URL used for duplicate detection and search. */
+  /** 归一化后的视频链接，用于重复任务检测和搜索。 */
   normalizedUrl: string;
-  /** Source platform for the submitted video. */
+  /** 提交视频的来源平台。 */
   platform: VideoPlatform;
-  /** Video title fetched by the worker during metadata extraction. */
+  /** worker 提取元数据后写入的视频标题。 */
   title: string | null;
-  /** Video author, channel, or Bilibili creator name. */
+  /** 视频作者、频道或 Bilibili UP 主名称。 */
   author: string | null;
-  /** Video duration in seconds. */
+  /** 视频时长，单位秒。 */
   durationSeconds: number | null;
-  /** Video thumbnail URL fetched from the source platform. */
+  /** 从来源平台获取的视频封面图地址。 */
   thumbnailUrl: string | null;
-  /** Current processing status shown in records, detail pages, and agent status queries. */
+  /** 当前处理状态，用于记录列表、详情页和 agent 状态查询。 */
   status: VideoRecordStatus;
-  /** Final transcript source chosen for this record, if transcript extraction has succeeded. */
+  /** 记录最终采用的字幕来源，字幕提取成功后写入。 */
   transcriptSource: TranscriptSource | null;
-  /** Requested output mode for this task. */
+  /** 本次任务请求的输出模式。 */
   outputMode: OutputMode;
-  /** Whether the worker may fall back to audio extraction and ASR when subtitles are unavailable. */
+  /** 没有可用字幕时，worker 是否可以回退到音频提取和 ASR。 */
   fallbackToAudio: boolean;
-  /** Whether this task should send the summary to the user's default verified email. */
+  /** 本次任务是否需要把摘要发送到用户默认已验证邮箱。 */
   sendEmail: boolean;
-  /** Source that created this record, such as web UI, MCP agent, system, or scheduled job. */
+  /** 创建这条记录的来源，例如网页、MCP agent、系统或定时任务。 */
   createdByType: RecordCreatorType;
-  /** Creator identifier. For MCP records this can be the token id; for web records this can be the user id. */
+  /** 创建者标识。MCP 记录可存 token ID，网页记录可存用户 ID。 */
   createdById: string | null;
-  /** Structured failure code used for recovery actions and UI messaging. */
+  /** 结构化失败码，用于恢复操作和前端提示。 */
   errorCode: string | null;
-  /** Human-readable failure message for users or operations debugging. */
+  /** 面向用户或运维排查的失败说明。 */
   errorMessage: string | null;
-  /** Time when the record was created. */
+  /** 任务记录创建时间。 */
   createdAt: Date;
-  /** Time when the record was last updated. */
+  /** 任务记录最后更新时间。 */
   updatedAt: Date;
-  /** Time when processing completed, failed, or was cancelled. */
+  /** 任务完成、失败或取消的时间。 */
   completedAt: Date | null;
-  /** Soft delete timestamp. Null means the record is visible. */
+  /** 软删除时间；为空表示记录仍可见。 */
   deletedAt: Date | null;
 };
 
 export type TranscriptRow = {
-  /** Transcript result primary key. */
+  /** 字幕结果主键。 */
   id: string;
-  /** Related video record id. */
+  /** 关联的视频记录 ID。 */
   recordId: string;
-  /** Owner user id from Supabase Auth. */
+  /** 字幕所属用户 ID，来自 Supabase Auth。 */
   userId: string;
-  /** Transcript language, such as zh-CN or en. */
+  /** 字幕语言，例如 zh-CN 或 en。 */
   language: string | null;
-  /** Transcript source, such as manual subtitle, auto subtitle, or ASR. */
+  /** 字幕来源，例如人工字幕、自动字幕或 ASR。 */
   source: TranscriptSource;
-  /** Full transcript text stored directly in Postgres for MVP. */
+  /** 字幕全文，MVP 阶段直接存储在 Postgres。 */
   plainText: string | null;
-  /** Object storage key for large transcript payloads or subtitle files. */
+  /** 对象存储 key，用于大字幕文本或字幕文件。 */
   storageKey: string | null;
-  /** Number of segment rows associated with this transcript. */
+  /** 当前字幕对应的分段数量。 */
   segmentCount: number;
-  /** Time when the transcript was created. */
+  /** 字幕结果创建时间。 */
   createdAt: Date;
 };
 
 export type TranscriptSegmentRow = {
-  /** Transcript segment primary key. */
+  /** 字幕分段主键。 */
   id: string;
-  /** Parent transcript id. */
+  /** 父级字幕结果 ID。 */
   transcriptId: string;
-  /** Related video record id, duplicated for fast record detail reads. */
+  /** 关联的视频记录 ID，冗余保存以便详情页快速读取。 */
   recordId: string;
-  /** Owner user id from Supabase Auth, duplicated for RLS and filtering. */
+  /** 分段所属用户 ID，冗余保存用于 RLS 和查询过滤。 */
   userId: string;
-  /** Segment start time in seconds. May include decimals. */
+  /** 分段开始时间，单位秒，可包含小数。 */
   startSeconds: number | null;
-  /** Segment end time in seconds. May include decimals. */
+  /** 分段结束时间，单位秒，可包含小数。 */
   endSeconds: number | null;
-  /** Text spoken or shown during this segment. */
+  /** 当前时间段内的字幕文本。 */
   text: string;
-  /** Stable ordering value for transcript display. */
+  /** 稳定排序值，用于字幕展示顺序。 */
   sortOrder: number;
 };
 
 export type SummaryRow = {
-  /** Summary result primary key. */
+  /** 摘要结果主键。 */
   id: string;
-  /** Related video record id. */
+  /** 关联的视频记录 ID。 */
   recordId: string;
-  /** Owner user id from Supabase Auth. */
+  /** 摘要所属用户 ID，来自 Supabase Auth。 */
   userId: string;
-  /** Summary language, defaulting to zh-CN. */
+  /** 摘要语言，默认 zh-CN。 */
   language: string;
-  /** Summary format, such as brief, detailed, or email digest. */
+  /** 摘要格式，例如简版、详细版或邮件摘要版。 */
   format: SummaryFormat;
-  /** Summary title generated by the model or copied from the video title. */
+  /** 摘要标题，可由模型生成或复制视频标题。 */
   title: string | null;
-  /** Short overview shown in record detail and compact previews. */
+  /** 短摘要，用于记录详情和紧凑预览。 */
   shortSummary: string | null;
-  /** Structured key points generated from the transcript. */
+  /** 从字幕生成的结构化关键要点。 */
   keyPoints: unknown[];
-  /** Structured timeline items generated from the transcript. */
+  /** 从字幕生成的结构化时间线条目。 */
   timeline: unknown[];
-  /** Structured takeaways or action items. */
+  /** 结构化结论、行动建议或可复用要点。 */
   takeaways: unknown[];
-  /** Full Markdown summary used for copy, email, and export. */
+  /** 完整 Markdown 摘要，用于复制、邮件和导出。 */
   markdown: string | null;
-  /** Model name used to generate the summary. */
+  /** 生成摘要使用的模型名称。 */
   model: string | null;
-  /** Prompt version used to generate the summary. */
+  /** 生成摘要使用的 prompt 版本。 */
   promptVersion: string | null;
-  /** Time when the summary was created. */
+  /** 摘要创建时间。 */
   createdAt: Date;
 };
 
 export type EmailAddressRow = {
-  /** Email address primary key. Used by delivery tools as toEmailId. */
+  /** 邮箱记录主键，投递 tool 会作为 toEmailId 使用。 */
   id: string;
-  /** Owner user id from Supabase Auth. */
+  /** 邮箱所属用户 ID，来自 Supabase Auth。 */
   userId: string;
-  /** Recipient email address. */
+  /** 收件邮箱地址。 */
   email: string;
-  /** Verification state for this recipient address. */
+  /** 当前收件邮箱的验证状态。 */
   status: EmailAddressStatus;
-  /** Whether this is the user's default recipient email. */
+  /** 是否为用户默认收件邮箱。 */
   isDefault: boolean;
-  /** Hash of the verification token. The raw token is never persisted. */
+  /** 邮箱验证 token 的 hash，永不持久化明文 token。 */
   verificationTokenHash: string | null;
-  /** Time when the latest verification email was sent. */
+  /** 最近一次验证邮件发送时间。 */
   verificationSentAt: Date | null;
-  /** Time when the email address was verified. */
+  /** 邮箱完成验证的时间。 */
   verifiedAt: Date | null;
-  /** Time when a digest email was last sent successfully to this address. */
+  /** 最近一次成功向该邮箱发送摘要邮件的时间。 */
   lastSentAt: Date | null;
-  /** Time when the email address row was created. */
+  /** 邮箱记录创建时间。 */
   createdAt: Date;
 };
 
 export type DeliveryRecordRow = {
-  /** Delivery record primary key. */
+  /** 投递记录主键。 */
   id: string;
-  /** Related video record id. */
+  /** 关联的视频记录 ID。 */
   recordId: string;
-  /** Owner user id from Supabase Auth. */
+  /** 投递所属用户 ID，来自 Supabase Auth。 */
   userId: string;
-  /** Summary version used for this delivery. Null if the summary was deleted. */
+  /** 本次投递使用的摘要版本；摘要被删除时为空。 */
   summaryId: string | null;
-  /** Delivery target type, such as email or webhook. */
+  /** 投递目标类型，例如 email 或 webhook。 */
   type: DeliveryType;
-  /** Delivery target id. For email delivery this points to `email_addresses.id`. */
+  /** 投递目标 ID。邮件投递时指向 `email_addresses.id`。 */
   targetId: string;
-  /** Delivery lifecycle status. */
+  /** 投递生命周期状态。 */
   status: DeliveryStatus;
-  /** Email subject or webhook event title. */
+  /** 邮件主题或 webhook 事件标题。 */
   subject: string | null;
-  /** Failure message when delivery fails. */
+  /** 投递失败时的错误说明。 */
   errorMessage: string | null;
-  /** Time when the delivery record was created. */
+  /** 投递记录创建时间。 */
   createdAt: Date;
-  /** Time when the delivery was sent successfully. */
+  /** 投递成功发送时间。 */
   sentAt: Date | null;
 };
 
 export type McpTokenRow = {
-  /** MCP token primary key. Can be used as an agent actor id. */
+  /** MCP token 主键，可作为 agent actor ID 使用。 */
   id: string;
-  /** Owner user id from Supabase Auth. */
+  /** token 所属用户 ID，来自 Supabase Auth。 */
   userId: string;
-  /** Human-readable token name shown in settings. */
+  /** 设置页展示的 token 名称。 */
   name: string;
-  /** Display prefix used to identify the token without exposing the secret. */
+  /** token 展示前缀，用于识别 token，但不暴露密钥。 */
   tokenPrefix: string;
-  /** Hash of the token secret. The raw token is never persisted. */
+  /** token 密钥的 hash，永不持久化明文 token。 */
   tokenHash: string;
-  /** Scope list that controls which MCP tools this token may call. */
+  /** scope 列表，控制该 token 可调用哪些 MCP tools。 */
   scopes: string[];
-  /** Token expiration time. Null means no explicit expiration. */
+  /** token 过期时间；为空表示没有显式过期时间。 */
   expiresAt: Date | null;
-  /** Time when the token was last used successfully. */
+  /** token 最近一次成功使用时间。 */
   lastUsedAt: Date | null;
-  /** Time when the token was revoked. Null means the token is active. */
+  /** token 撤销时间；为空表示 token 仍启用。 */
   revokedAt: Date | null;
-  /** Time when the token was created. */
+  /** token 创建时间。 */
   createdAt: Date;
 };
 
 export type JobEventRow = {
-  /** Job event primary key. */
+  /** 任务事件主键。 */
   id: string;
-  /** Related video record id. */
+  /** 关联的视频记录 ID。 */
   recordId: string;
-  /** Owner user id from Supabase Auth. */
+  /** 事件所属用户 ID，来自 Supabase Auth。 */
   userId: string;
-  /** Status or processing phase represented by this event. */
+  /** 当前事件表示的任务状态或处理阶段。 */
   status: VideoRecordStatus;
-  /** Human-readable status message, failure hint, or worker log summary. */
+  /** 可读的状态说明、失败提示或 worker 日志摘要。 */
   message: string | null;
-  /** Structured event metadata, such as provider, duration, or retry count. */
+  /** 结构化事件元数据，例如 provider、耗时或重试次数。 */
   metadata: Record<string, unknown>;
-  /** Time when this event occurred. */
+  /** 事件发生时间。 */
   createdAt: Date;
 };
 
 export type UsageEventRow = {
-  /** Usage event primary key. */
+  /** 用量事件主键。 */
   id: string;
-  /** Owner user id from Supabase Auth. */
+  /** 用量所属用户 ID，来自 Supabase Auth。 */
   userId: string;
-  /** Related video record id. Null for usage events not tied to a single record. */
+  /** 关联的视频记录 ID；与单条记录无关的用量事件可为空。 */
   recordId: string | null;
-  /** Type of usage event being counted. */
+  /** 被计量的用量事件类型。 */
   eventType: UsageEventType;
-  /** Measured quantity for this event, such as 1 count or transcription minutes. */
+  /** 本次事件的计量值，例如 1 次或转写分钟数。 */
   quantity: number;
-  /** Unit for `quantity`, such as count or minute. */
+  /** `quantity` 的计量单位，例如 count 或 minute。 */
   unit: UsageUnit;
-  /** Time when this usage event occurred. */
+  /** 用量事件发生时间。 */
   createdAt: Date;
 };

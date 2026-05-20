@@ -16,15 +16,15 @@ export default function McpTokenSettingsPage() {
   return (
     <AppShell current="/settings/mcp-tokens">
       <PageHeader
-        eyebrow="MCP token settings"
-        title="Create and revoke agent access"
-        description="Tokens let external agents create video digest jobs while preserving ownership and making every result visible in the website record list."
-        actions={<Button>Create token</Button>}
+        eyebrow="MCP 令牌设置"
+        title="创建和撤销智能体访问权限"
+        description="令牌允许外部智能体创建视频摘要任务，同时保留用户归属，并让结果出现在网站记录列表中。"
+        actions={<Button>创建令牌</Button>}
       />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
         <Panel>
-          <PanelHeader title="Active tokens" />
+          <PanelHeader title="启用中的令牌" />
           <div className="divide-y divide-slate-200">
             {mcpTokens.map((token) => (
               <div
@@ -37,7 +37,7 @@ export default function McpTokenSettingsPage() {
                     <StatusBadge tone="green">{token.status}</StatusBadge>
                   </div>
                   <p className="mt-2 text-sm text-slate-500">
-                    Last used: {token.lastUsedAt}
+                    上次使用：{token.lastUsedAt}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {token.scopes.map((scope) => (
@@ -55,7 +55,7 @@ export default function McpTokenSettingsPage() {
                 </p>
                 <Button variant="outline" size="sm">
                   <TrashIcon />
-                  Revoke
+                  撤销
                 </Button>
               </div>
             ))}
@@ -64,24 +64,24 @@ export default function McpTokenSettingsPage() {
 
         <div className="grid content-start gap-5">
           <Panel>
-            <PanelHeader title="New token" />
+            <PanelHeader title="新建令牌" />
             <form className="grid gap-4 p-5">
               <div className="grid gap-2">
                 <label
                   htmlFor="token-name"
                   className="text-sm font-medium text-slate-800"
                 >
-                  Token name
+                  令牌名称
                 </label>
                 <input
                   id="token-name"
-                  placeholder="Research agent"
+                  placeholder="研究助手"
                   className="h-10 rounded-md border border-slate-300 px-3 text-sm outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
               <fieldset className="grid gap-2">
                 <legend className="text-sm font-medium text-slate-800">
-                  Scopes
+                  权限范围
                 </legend>
                 {scopes.map((scope, index) => (
                   <label
@@ -97,12 +97,12 @@ export default function McpTokenSettingsPage() {
                   </label>
                 ))}
               </fieldset>
-              <Button type="button">Create token</Button>
+              <Button type="button">创建令牌</Button>
             </form>
           </Panel>
 
           <Panel>
-            <PanelHeader title="Configuration example" />
+            <PanelHeader title="配置示例" />
             <div className="grid gap-3 p-5">
               <pre className="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-slate-100">
                 {`MCP URL: https://your-domain.com/api/mcp
@@ -110,7 +110,7 @@ Authorization: Bearer mcp_xxx`}
               </pre>
               <Button variant="outline">
                 <CopyIcon />
-                Copy config
+                复制配置
               </Button>
             </div>
           </Panel>

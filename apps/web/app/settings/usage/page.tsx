@@ -11,9 +11,9 @@ export default function UsageSettingsPage() {
   return (
     <AppShell current="/settings/usage">
       <PageHeader
-        eyebrow="Usage"
-        title="Monitor quota and operational volume"
-        description="A static usage snapshot for monthly tasks, transcript extraction, audio transcription, email delivery, and failures."
+        eyebrow="用量"
+        title="查看额度和运行情况"
+        description="静态展示本月任务、字幕提取、音频转写、邮件投递和失败次数。"
       />
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
@@ -24,7 +24,7 @@ export default function UsageSettingsPage() {
               <p className="mt-3 text-3xl font-semibold text-slate-950">
                 {stat.value}
               </p>
-              <p className="mt-2 text-sm text-slate-500">Limit: {stat.limit}</p>
+              <p className="mt-2 text-sm text-slate-500">额度：{stat.limit}</p>
             </div>
           </Panel>
         ))}
@@ -33,8 +33,8 @@ export default function UsageSettingsPage() {
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Panel>
           <PanelHeader
-            title="Monthly plan progress"
-            description="Static bars showing the shape of the future billing and quota UI."
+            title="本月套餐进度"
+            description="第一版先用静态进度条呈现未来计费和额度页面的结构。"
           />
           <div className="grid gap-5 p-5">
             {usageStats.slice(0, 4).map((stat, index) => (
@@ -57,21 +57,21 @@ export default function UsageSettingsPage() {
         </Panel>
 
         <Panel>
-          <PanelHeader title="Current plan" />
+          <PanelHeader title="当前套餐" />
           <div className="grid gap-4 p-5">
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-lg font-semibold text-slate-950">MVP Pro</p>
-                <StatusBadge tone="blue">Active</StatusBadge>
+                <p className="text-lg font-semibold text-slate-950">
+                  MVP 专业版
+                </p>
+                <StatusBadge tone="blue">启用中</StatusBadge>
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Designed for individual research workflows with website and MCP
-                access.
+                面向个人研究工作流，支持网站操作和 MCP 访问。
               </p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-              Plan limit changes will later connect to billing, alerts, and
-              upgrade flows.
+              套餐额度变更后续会接入计费、提醒和升级流程。
             </div>
           </div>
         </Panel>

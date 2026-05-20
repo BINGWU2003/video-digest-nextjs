@@ -28,12 +28,12 @@ function statusTone(
 }
 
 const timelineSteps = [
-  "Created",
-  "Metadata fetched",
-  "Transcript extracted",
-  "Audio transcribed",
-  "Summary generated",
-  "Email delivered",
+  "创建任务",
+  "读取视频信息",
+  "提取字幕",
+  "音频转写",
+  "生成摘要",
+  "邮件投递",
 ];
 
 export function generateStaticParams() {
@@ -64,21 +64,21 @@ export default async function RecordDetailPage({
   return (
     <AppShell current="/records">
       <PageHeader
-        eyebrow="Record detail"
+        eyebrow="记录详情"
         title={record.title}
-        description={`${record.platform} video by ${record.author}. ${record.createdBy}.`}
+        description={`${record.author} 发布的 ${record.platform} 视频。${record.createdBy}。`}
         actions={
           <>
             <Button asChild variant="outline">
-              <Link href={record.sourceUrl}>Open source</Link>
+              <Link href={record.sourceUrl}>打开源视频</Link>
             </Button>
             <Button variant="outline">
               <RefreshIcon />
-              Retry
+              重试
             </Button>
             <Button>
               <MailIcon />
-              Send email
+              发送邮件
             </Button>
           </>
         }
@@ -88,7 +88,7 @@ export default async function RecordDetailPage({
         <div className="grid gap-5">
           <Panel>
             <PanelHeader
-              title="Summary"
+              title="摘要"
               action={
                 <StatusBadge tone={statusTone(record.status)}>
                   {statusLabels[record.status]}
@@ -116,7 +116,7 @@ export default async function RecordDetailPage({
               {record.summary.keyPoints.length ? (
                 <div>
                   <h2 className="text-sm font-semibold text-slate-950">
-                    Key points
+                    关键要点
                   </h2>
                   <ul className="mt-3 grid gap-2">
                     {record.summary.keyPoints.map((point) => (
@@ -134,7 +134,7 @@ export default async function RecordDetailPage({
               {record.summary.timeline.length ? (
                 <div>
                   <h2 className="text-sm font-semibold text-slate-950">
-                    Timeline
+                    时间线
                   </h2>
                   <div className="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200">
                     {record.summary.timeline.map((item) => (
@@ -160,7 +160,7 @@ export default async function RecordDetailPage({
               {record.summary.takeaways.length ? (
                 <div>
                   <h2 className="text-sm font-semibold text-slate-950">
-                    Takeaways
+                    结论与行动建议
                   </h2>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {record.summary.takeaways.map((item) => (
@@ -178,21 +178,18 @@ export default async function RecordDetailPage({
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline">
                   <CopyIcon />
-                  Copy summary
+                  复制摘要
                 </Button>
                 <Button variant="outline">
                   <RefreshIcon />
-                  Regenerate summary
+                  重新生成摘要
                 </Button>
               </div>
             </div>
           </Panel>
 
           <Panel>
-            <PanelHeader
-              title="Transcript"
-              description={record.transcriptSource}
-            />
+            <PanelHeader title="字幕" description={record.transcriptSource} />
             {record.transcript.length ? (
               <div className="divide-y divide-slate-200">
                 {record.transcript.map((segment) => (
@@ -211,13 +208,13 @@ export default async function RecordDetailPage({
               </div>
             ) : (
               <div className="p-5 text-sm text-slate-600">
-                No transcript segments are available for this failed job.
+                这个失败任务暂无可用字幕片段。
               </div>
             )}
             <div className="border-t border-slate-200 p-5">
               <Button variant="outline">
                 <CopyIcon />
-                Copy transcript
+                复制字幕
               </Button>
             </div>
           </Panel>
@@ -225,15 +222,15 @@ export default async function RecordDetailPage({
 
         <div className="grid content-start gap-5">
           <Panel>
-            <PanelHeader title="Video info" />
+            <PanelHeader title="视频信息" />
             <dl className="grid gap-3 p-5 text-sm">
               {[
-                ["Record ID", record.id],
-                ["Author", record.author],
-                ["Duration", record.duration],
-                ["Created", record.createdAt],
-                ["Completed", record.completedAt ?? "In progress"],
-                ["Delivery", record.deliveryStatus],
+                ["记录 ID", record.id],
+                ["作者", record.author],
+                ["时长", record.duration],
+                ["创建时间", record.createdAt],
+                ["完成时间", record.completedAt ?? "处理中"],
+                ["投递状态", record.deliveryStatus],
               ].map(([label, value]) => (
                 <div
                   key={label}
@@ -249,7 +246,7 @@ export default async function RecordDetailPage({
           </Panel>
 
           <Panel>
-            <PanelHeader title="Processing timeline" />
+            <PanelHeader title="处理时间线" />
             <ol className="grid gap-3 p-5">
               {timelineSteps.map((step, index) => {
                 const completed =
@@ -275,10 +272,10 @@ export default async function RecordDetailPage({
                       </span>
                       <span className="block text-xs text-slate-500">
                         {completed
-                          ? "Done"
+                          ? "已完成"
                           : failedPoint
-                            ? "Needs attention"
-                            : "Pending"}
+                            ? "需要处理"
+                            : "待处理"}
                       </span>
                     </span>
                   </li>
@@ -288,28 +285,28 @@ export default async function RecordDetailPage({
           </Panel>
 
           <Panel>
-            <PanelHeader title="Delivery" />
+            <PanelHeader title="投递" />
             <div className="grid gap-3 p-5 text-sm text-slate-700">
               <div className="rounded-lg border border-slate-200 p-4">
-                <p className="font-medium text-slate-950">Default email</p>
+                <p className="font-medium text-slate-950">默认邮箱</p>
                 <p className="mt-1 text-slate-600">alex@example.com</p>
                 <p className="mt-2 text-xs text-slate-500">
-                  Status: {record.deliveryStatus}
+                  状态：{record.deliveryStatus}
                 </p>
               </div>
               <Button variant="outline">
                 <MailIcon />
-                Preview email
+                预览邮件
               </Button>
             </div>
           </Panel>
 
           <Panel>
-            <PanelHeader title="Danger zone" />
+            <PanelHeader title="危险操作" />
             <div className="p-5">
               <Button variant="destructive">
                 <TrashIcon />
-                Delete record
+                删除记录
               </Button>
             </div>
           </Panel>

@@ -3,11 +3,11 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/records", label: "Records" },
-  { href: "/settings/emails", label: "Emails" },
-  { href: "/settings/mcp-tokens", label: "MCP Tokens" },
-  { href: "/settings/usage", label: "Usage" },
+  { href: "/dashboard", label: "工作台" },
+  { href: "/records", label: "记录" },
+  { href: "/settings/emails", label: "邮箱" },
+  { href: "/settings/mcp-tokens", label: "MCP 令牌" },
+  { href: "/settings/usage", label: "用量" },
 ];
 
 type AppShellProps = {
@@ -25,18 +25,16 @@ export function AppShell({ children, current }: AppShellProps) {
             className="flex w-fit items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <span className="grid size-9 place-items-center rounded-md bg-blue-600 text-sm font-semibold text-white">
-              VD
+              摘
             </span>
             <span>
-              <span className="block text-base font-semibold">
-                Video Digest
-              </span>
+              <span className="block text-base font-semibold">视频摘要</span>
               <span className="block text-xs text-slate-500">
-                Summaries, transcripts, delivery
+                摘要、字幕与投递
               </span>
             </span>
           </Link>
-          <nav aria-label="Primary navigation" className="flex flex-wrap gap-1">
+          <nav aria-label="主导航" className="flex flex-wrap gap-1">
             {navigation.map((item) => (
               <Link
                 key={item.href}

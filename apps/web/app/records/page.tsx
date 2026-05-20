@@ -12,15 +12,8 @@ import {
 import { ArrowRightIcon, SearchIcon } from "../_components/icons";
 import { records, statusLabels } from "../_data/mock-data";
 
-const statuses = [
-  "All",
-  "Queued",
-  "Processing",
-  "Completed",
-  "Failed",
-  "Delivered",
-];
-const platforms = ["All", "YouTube", "Bilibili"];
+const statuses = ["全部", "排队中", "处理中", "已完成", "失败", "已投递"];
+const platforms = ["全部", "YouTube", "Bilibili"];
 
 function statusTone(
   status: string,
@@ -35,13 +28,13 @@ export default function RecordsPage() {
   return (
     <AppShell current="/records">
       <PageHeader
-        eyebrow="Records"
-        title="Search every submitted video"
-        description="Website jobs, MCP-created tasks, and scheduled digests are shown together with status, transcript source, delivery state, and source links."
+        eyebrow="记录"
+        title="搜索所有提交过的视频"
+        description="网站任务、MCP 创建的任务和定时摘要会统一展示，并包含状态、字幕来源、投递状态和源链接。"
         actions={
           <Button asChild>
             <Link href="/dashboard">
-              New task
+              新建任务
               <ArrowRightIcon />
             </Link>
           </Button>
@@ -49,31 +42,28 @@ export default function RecordsPage() {
       />
 
       <Panel>
-        <PanelHeader
-          title="Filters"
-          description="Static controls for the first UI pass."
-        />
+        <PanelHeader title="筛选" description="第一版先展示静态筛选控件。" />
         <div className="grid gap-4 p-5 lg:grid-cols-[minmax(220px,1fr)_auto_auto] lg:items-end">
           <div className="grid gap-2">
             <label
               htmlFor="record-search"
               className="text-sm font-medium text-slate-800"
             >
-              Search
+              搜索
             </label>
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <input
                 id="record-search"
                 type="search"
-                placeholder="Title, URL, summary, or error reason"
+                placeholder="搜索标题、链接、摘要内容或失败原因"
                 className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
           </div>
 
           <div className="grid gap-2">
-            <p className="text-sm font-medium text-slate-800">Status</p>
+            <p className="text-sm font-medium text-slate-800">状态</p>
             <div className="flex flex-wrap gap-1">
               {statuses.map((status, index) => (
                 <button
@@ -92,7 +82,7 @@ export default function RecordsPage() {
           </div>
 
           <div className="grid gap-2">
-            <p className="text-sm font-medium text-slate-800">Platform</p>
+            <p className="text-sm font-medium text-slate-800">平台</p>
             <div className="flex flex-wrap gap-1">
               {platforms.map((platform, index) => (
                 <button
@@ -114,21 +104,21 @@ export default function RecordsPage() {
 
       <Panel className="mt-5 overflow-hidden">
         <PanelHeader
-          title="All records"
-          description={`${records.length} static records`}
+          title="全部记录"
+          description={`${records.length} 条静态记录`}
         />
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-[0.04em] text-slate-500">
               <tr>
-                <th className="px-5 py-3 font-semibold">Title</th>
-                <th className="px-5 py-3 font-semibold">Platform</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3 font-semibold">Created</th>
-                <th className="px-5 py-3 font-semibold">Completed</th>
-                <th className="px-5 py-3 font-semibold">Transcript</th>
-                <th className="px-5 py-3 font-semibold">Delivery</th>
-                <th className="px-5 py-3 font-semibold">Actions</th>
+                <th className="px-5 py-3 font-semibold">标题</th>
+                <th className="px-5 py-3 font-semibold">平台</th>
+                <th className="px-5 py-3 font-semibold">状态</th>
+                <th className="px-5 py-3 font-semibold">创建时间</th>
+                <th className="px-5 py-3 font-semibold">完成时间</th>
+                <th className="px-5 py-3 font-semibold">字幕来源</th>
+                <th className="px-5 py-3 font-semibold">投递</th>
+                <th className="px-5 py-3 font-semibold">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
@@ -160,7 +150,7 @@ export default function RecordsPage() {
                     {record.createdAt}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
-                    {record.completedAt ?? "In progress"}
+                    {record.completedAt ?? "处理中"}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
                     {record.transcriptSource}
@@ -170,7 +160,7 @@ export default function RecordsPage() {
                   </td>
                   <td className="px-5 py-4">
                     <Button asChild variant="outline" size="sm">
-                      <Link href={`/records/${record.id}`}>Open</Link>
+                      <Link href={`/records/${record.id}`}>打开</Link>
                     </Button>
                   </td>
                 </tr>

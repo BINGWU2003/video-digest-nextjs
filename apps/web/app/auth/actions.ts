@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { authUserExistsByEmail } from "@/lib/supabase/admin";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -90,6 +91,14 @@ export async function signUpWithPassword(formData: FormData) {
     ? `${origin}/auth/callback?next=${encodeURIComponent(next)}`
     : undefined;
 
+  const existingUser = await authUserExistsByEmail(email);
+
+  if (existingUser) {
+    redirect(
+      `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("该邮箱已注册，请直接登录。")}`,
+    );
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -118,7 +127,7 @@ export async function signUpWithPassword(formData: FormData) {
   }
 
   redirect(
-    `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("注册成功，请检查邮箱完成验证。")}`,
+    `/login?next=${encodeURIComponent(next)}&message=${encodedMessage("如果该邮箱未注册，会收到一封确认邮件。请检查收件箱或垃圾邮件。")}`,
   );
 }
 

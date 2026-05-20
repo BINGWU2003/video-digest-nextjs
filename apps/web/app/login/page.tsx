@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { Button } from "@/components/ui/button";
 
 import { signInWithPassword, signUpWithPassword } from "../auth/actions";
@@ -26,9 +28,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-6 py-5">
           <div className="flex items-center gap-3">
-            <span className="grid size-9 place-items-center rounded-md bg-blue-600 text-sm font-semibold text-white">
-              摘
-            </span>
+            <Image
+              src="/logo.png"
+              alt="视频摘要"
+              width={36}
+              height={36}
+              className="size-9 rounded-md object-cover"
+              priority
+            />
             <div>
               <p className="font-semibold text-slate-950">视频摘要</p>
               <p className="text-sm text-slate-500">登录后继续使用工作台</p>

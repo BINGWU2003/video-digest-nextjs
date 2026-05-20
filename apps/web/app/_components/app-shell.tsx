@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 
@@ -27,9 +28,14 @@ export function AppShell({ children, current, userEmail }: AppShellProps) {
             href="/dashboard"
             className="flex w-fit items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
-            <span className="grid size-9 place-items-center rounded-md bg-blue-600 text-sm font-semibold text-white">
-              摘
-            </span>
+            <Image
+              src="/logo.png"
+              alt="视频摘要"
+              width={36}
+              height={36}
+              className="size-9 rounded-md object-cover"
+              priority
+            />
             <span>
               <span className="block text-base font-semibold">视频摘要</span>
               <span className="block text-xs text-slate-500">

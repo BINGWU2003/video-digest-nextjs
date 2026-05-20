@@ -14,6 +14,11 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "视频摘要",
   description: "创建、查看并投递视频摘要。",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

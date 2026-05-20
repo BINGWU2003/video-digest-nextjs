@@ -21,9 +21,30 @@
 src/schema.ts
   共享枚举和表字段类型。
 
+src/tables.ts
+  10 张业务表的 Row 类型和中文字段注释。
+
 src/repositories/video-records.ts
   VideoRecordsRepository 模板。
 ```
+
+## Migration
+
+当前数据库入口：
+
+```txt
+supabase/migrations/20260520213500_initial_video_digest_schema.sql
+```
+
+该 migration 包含：
+
+- 10 张业务表。
+- check 约束和索引。
+- Row Level Security。
+- 中文 table/column comment。
+- `updated_at` 自动更新时间 trigger。
+
+`mcp_tokens` 含 `token_hash`，暂不开放普通用户直连读取策略。后续设置页应通过服务端接口或安全视图读取 token 列表。
 
 ## 常用命令
 

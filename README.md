@@ -1,158 +1,155 @@
-# Turborepo starter
+# Video Digest Next.js
 
-This Turborepo starter is maintained by the Turborepo core team.
+Video Digest 是一个基于 Next.js 的视频摘要产品。用户可以提交 YouTube 或 Bilibili 视频链接，系统异步提取字幕或音频转写，生成结构化摘要，并支持通过已验证邮箱投递结果。
 
-## Using this example
+项目采用 MCP-first 架构：网站内部操作和外部 agent 都围绕同一组 MCP tools 工作，长任务通过队列交给 worker 执行，Postgres 保存任务、字幕、摘要、投递和用量记录。
 
-Run the following command:
+## 技术栈
 
-```sh
-npx create-turbo@latest
+- Monorepo: Turborepo + pnpm workspace
+- Web: Next.js App Router + React + Tailwind CSS
+- Auth: Supabase Auth
+- Database: Supabase Postgres + SQL migrations + RLS
+- Contracts: Zod
+- Worker: TypeScript Node.js 模板，后续接 BullMQ/Redis
+
+## 目录结构
+
+```txt
+apps/
+  web/                 Next.js 网页应用，后续承载 /api/mcp
+  worker/              后台 worker 模板，后续消费视频处理队列
+
+packages/
+  job-contracts/       跨层 zod schema、actor、job payload 和共享类型
+  database/            数据库类型、repository interface 和后续 Supabase 实现
+  video-digest-core/   核心业务服务，不绑定 Next.js、MCP 或 BullMQ
+  mcp-tools/           MCP tool 适配层
+  queue/               队列名称、payload 和后续 BullMQ helper
+  eslint-config/       共享 ESLint 配置
+  typescript-config/   共享 TypeScript 配置
+
+docs/                  产品、架构、部署、数据库和后端模块文档
+supabase/migrations/   Supabase SQL migrations
 ```
 
-## What's inside?
+## 当前状态
 
-This Turborepo includes the following packages/apps:
+已完成：
 
-### Apps and Packages
+- Web 静态产品界面和 Supabase 登录骨架。
+- 数据库表结构设计文档。
+- 后端模块骨架。
+- `video-records` 模板链路：
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```txt
+create_video_digest_job
+  -> @repo/video-digest-core createVideoRecord()
+  -> @repo/database VideoRecordsRepository
 ```
 
-Without global `turbo`, use your package manager:
+暂未完成：
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+- 真实 Supabase repository 实现。
+- Next.js `/api/mcp` endpoint。
+- BullMQ/Redis 入队与 worker 消费。
+- 视频 provider、ASR、LLM summary 和邮件投递实现。
+
+## 本地开发
+
+安装依赖：
+
+```bash
+pnpm install
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+启动 Web：
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+```bash
+pnpm --filter web dev
 ```
 
-Without global `turbo`:
+打开：
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```txt
+http://localhost:3000
 ```
 
-### Develop
+启动 worker 模板：
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
+```bash
+pnpm --filter worker dev
 ```
 
-Without global `turbo`, use your package manager:
+## Supabase 配置
 
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
+复制 Web 环境变量示例：
+
+```bash
+cp apps/web/env.local.example apps/web/.env.local
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+填写：
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 ```
 
-Without global `turbo`:
+如果项目仍使用旧版 anon key，也可以填：
 
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+```bash
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 ```
 
-### Remote Caching
+Supabase 控制台建议加入本地回调地址：
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
+```txt
+http://localhost:3000/auth/callback
 ```
 
-Without global `turbo`, use your package manager:
+## 常用命令
 
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
+```bash
+pnpm dev
+pnpm build
+pnpm lint
+pnpm check-types
+pnpm format
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+按 workspace 运行：
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
+```bash
+pnpm --filter web dev
+pnpm --filter worker build
+pnpm --filter @repo/video-digest-core check-types
 ```
 
-Without global `turbo`:
+## 文档入口
 
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
+- [Web 产品设计](docs/video-digest-web-product.md)
+- [MCP-first 架构](docs/video-digest-mcp-architecture.md)
+- [部署方案](docs/video-digest-deployment.md)
+- [数据库表结构](docs/video-digest-database-schema.md)
+- [后端模块划分](docs/video-digest-backend-modules.md)
 
-## Useful Links
+## Workspace README
 
-Learn more about the power of Turborepo:
+- [apps/web](apps/web/README.md)
+- [apps/worker](apps/worker/README.md)
+- [packages/job-contracts](packages/job-contracts/README.md)
+- [packages/database](packages/database/README.md)
+- [packages/video-digest-core](packages/video-digest-core/README.md)
+- [packages/mcp-tools](packages/mcp-tools/README.md)
+- [packages/queue](packages/queue/README.md)
+- [packages/eslint-config](packages/eslint-config/README.md)
+- [packages/typescript-config](packages/typescript-config/README.md)
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+## 开发原则
+
+- 写操作优先通过 MCP tool 或核心业务层收敛。
+- 页面读取可以直接查数据库模型。
+- 长任务不在 Next.js request 生命周期内同步执行。
+- Core service 不依赖框架、协议、队列或具体数据库客户端。
+- 邮件投递只允许发送到当前用户已验证邮箱。

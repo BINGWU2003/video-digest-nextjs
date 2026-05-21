@@ -33,6 +33,9 @@ src/repositories/job-events.ts
 src/repositories/usage-events.ts
   UsageEventsRepository，用于记录任务创建、转写、邮件等用量事件。
 
+src/repositories/transcripts.ts
+  TranscriptsRepository，用于创建字幕主记录和分段记录。
+
 src/supabase/video-records-repository.ts
   Supabase 版 video_records repository，实现 create、findByIdForUser、listForUser、updateStatusForUser、updateMetadataForUser。
 
@@ -41,6 +44,9 @@ src/supabase/job-events-repository.ts
 
 src/supabase/usage-events-repository.ts
   Supabase 版 usage_events repository，实现 create。
+
+src/supabase/transcripts-repository.ts
+  Supabase 版 transcripts/transcript_segments repository，实现 create。
 ```
 
 ## Migration

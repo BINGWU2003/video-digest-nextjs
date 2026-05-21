@@ -42,6 +42,7 @@ supabase/migrations/   Supabase SQL migrations
 - 后端模块骨架。
 - `video-records` 创建链路、记录读取 API、任务事件/用量事件写入，以及 BullMQ/Redis 队列 producer/consumer 边界：
 - 视频元数据 provider interface 骨架：
+- 字幕 provider interface 和写回骨架：
 
 ```txt
 create_video_digest_job
@@ -56,11 +57,17 @@ create_video_digest_job
   -> persistVideoMetadata()
   -> @repo/database VideoRecordsRepository.updateMetadataForUser()
   -> apps/worker job_events(extracting_transcript)
+
+@repo/video-digest-core fetchTranscript()
+  -> TranscriptProvider placeholder
+  -> persistTranscript()
+  -> @repo/database TranscriptsRepository.create()
 ```
 
 暂未完成：
 
 - Bilibili 元数据读取。
+- 真实字幕读取。
 - ASR、LLM summary 和邮件投递实现。
 
 ## 本地开发

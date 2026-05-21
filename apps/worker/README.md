@@ -43,9 +43,13 @@ src/index.ts
   -> createBullMqVideoDigestWorker()
   -> 更新 video_records.status = fetching_metadata
   -> 写入 job_events(fetching_metadata)
+  -> fetchVideoMetadata()
+  -> persistVideoMetadata()
   -> 失败时更新 video_records.status = failed
   -> 失败时写入 job_events(failed)
 ```
+
+当前 YouTube/Bilibili provider 仍是占位实现，因此 worker 会在 `fetchVideoMetadata()` 阶段触发失败链路。这用于验证失败状态和失败事件可以完整落库。
 
 ## 常用命令
 
@@ -59,6 +63,6 @@ pnpm --filter worker start
 
 ## 后续计划
 
-1. 调用 `@repo/video-digest-core` 处理任务。
-2. 接入视频 provider、字幕提取、摘要生成和邮件投递。
+1. 接入真实视频元数据 provider。
+2. 接入字幕提取、摘要生成和邮件投递。
 3. 增加更细的失败码和恢复策略。

@@ -13,6 +13,7 @@
   "dependencies": {
     "@repo/database": "workspace:*",
     "@repo/queue": "workspace:*",
+    "@repo/video-digest-core": "workspace:*",
     "@supabase/supabase-js": "catalog:",
     "dotenv": "catalog:",
     "ws": "catalog:"

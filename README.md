@@ -51,10 +51,8 @@ create_video_digest_job
   -> @repo/database UsageEventsRepository
   -> @repo/queue VideoDigestQueue
   -> apps/worker job_events(fetching_metadata)
-
-@repo/video-digest-core fetchVideoMetadata()
-  -> VideoMetadataProvider
-  -> YouTube/Bilibili provider placeholder
+  -> @repo/video-digest-core fetchVideoMetadata()
+  -> VideoMetadataProvider placeholder
   -> persistVideoMetadata()
   -> @repo/database VideoRecordsRepository.updateMetadataForUser()
 ```

@@ -12,6 +12,14 @@ import {
   videoDigestQueueName,
   type VideoDigestWorkerHandle,
 } from "@repo/queue";
+import {
+  createBilibiliVideoMetadataProvider,
+  createVideoMetadataProviderRegistry,
+  createYoutubeVideoMetadataProvider,
+  fetchVideoMetadata,
+  persistVideoMetadata,
+  type VideoMetadataProviderRegistry,
+} from "@repo/video-digest-core";
 import { createClient } from "@supabase/supabase-js";
 import { config as loadEnvFile } from "dotenv";
 import { dirname, resolve, sep } from "node:path";
@@ -50,6 +58,10 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
 
   const jobEventsRepository = createSupabaseJobEventsRepository(supabase);
   const videoRecordsRepository = createSupabaseVideoRecordsRepository(supabase);
+  const metadataProviderRegistry = createVideoMetadataProviderRegistry([
+    createYoutubeVideoMetadataProvider(),
+    createBilibiliVideoMetadataProvider(),
+  ]);
 
   const worker = createBullMqVideoDigestWorker({
     redisUrl: config.redisUrl,
@@ -57,6 +69,7 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
       await processVideoDigestJob(
         {
           jobEventsRepository,
+          metadataProviderRegistry,
           videoRecordsRepository,
         },
         payload,
@@ -74,6 +87,7 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
 
 type ProcessVideoDigestJobDependencies = {
   jobEventsRepository: JobEventsRepository;
+  metadataProviderRegistry: VideoMetadataProviderRegistry;
   videoRecordsRepository: VideoRecordsRepository;
 };
 
@@ -83,7 +97,7 @@ async function processVideoDigestJob(
   context: VideoDigestWorkerContext,
 ) {
   try {
-    await dependencies.videoRecordsRepository.updateStatusForUser({
+    const record = await dependencies.videoRecordsRepository.updateStatusForUser({
       id: payload.recordId,
       userId: payload.userId,
       status: "fetching_metadata",
@@ -107,6 +121,22 @@ async function processVideoDigestJob(
     console.log(
       `Accepted video digest job ${context.queueJobId ?? payload.recordId}`,
     );
+
+    const metadata = await fetchVideoMetadata(
+      {
+        providerRegistry: dependencies.metadataProviderRegistry,
+      },
+      {
+        platform: record.platform,
+        sourceUrl: record.sourceUrl,
+      },
+    );
+
+    await persistVideoMetadata(dependencies, {
+      metadata,
+      recordId: record.id,
+      userId: record.userId,
+    });
   } catch (caught) {
     await markVideoDigestJobFailed(dependencies, payload, context, caught);
     throw caught;

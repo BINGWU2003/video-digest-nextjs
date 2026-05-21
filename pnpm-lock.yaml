@@ -207,6 +207,9 @@ importers:
       '@repo/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@repo/video-digest-core':
+        specifier: workspace:*
+        version: link:../../packages/video-digest-core
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.106.0

@@ -82,6 +82,8 @@ apps/worker
     消费 process-video-digest job
     更新 video_records fetching_metadata 状态
     写入 job_events fetching_metadata 事件
+    调用 fetchVideoMetadata()
+    调用 persistVideoMetadata()
     失败时更新 video_records failed 状态
     失败时写入 job_events failed 事件
 
@@ -90,7 +92,7 @@ packages/mcp-tools
     createVideoDigestJobTool
 ```
 
-这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 会根据 `REDIS_URL` 自动选择 BullMQ producer 或 no-op 队列；worker 会消费 BullMQ job，将记录状态推进到 `fetching_metadata`，并在失败时写入 `failed` 状态和失败事件。视频元数据 provider 已建立统一接口，元数据写回边界已接入 `video_records`，但 YouTube/Bilibili 真实抓取尚未接入。
+这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 会根据 `REDIS_URL` 自动选择 BullMQ producer 或 no-op 队列；worker 会消费 BullMQ job，将记录状态推进到 `fetching_metadata`，调用视频元数据模块，并在失败时写入 `failed` 状态和失败事件。视频元数据 provider 已建立统一接口，元数据写回边界已接入 `video_records`，但 YouTube/Bilibili 真实抓取尚未接入，因此当前 provider 会触发失败链路。
 
 ## 调用方向
 
@@ -117,4 +119,4 @@ MCP Tool
 1. 模块边界是否符合文档预期。
 2. `video-records`、`job-events`、`usage-events` 模板是否足够清楚，可复制到 transcript、summary、delivery。
 3. 是否继续沿用 repository interface 方式扩展后续模块。
-4. 是否需要在下一步引入真实视频元数据读取、worker 调用元数据模块或数据库事务封装。
+4. 是否需要在下一步引入真实视频元数据读取或数据库事务封装。

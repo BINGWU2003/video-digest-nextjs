@@ -38,7 +38,20 @@ export type CreatedTranscript = {
   segments: TranscriptSegmentRow[];
 };
 
+export type FindLatestTranscriptForRecordInput = {
+  /** 关联的视频记录 ID。 */
+  recordId: string;
+  /** 字幕所属用户 ID，来自 Supabase Auth。 */
+  userId: string;
+  /** 返回的分段数量上限，默认由具体 repository 决定。 */
+  segmentLimit?: number;
+};
+
 export type TranscriptsRepository = {
   /** 创建字幕主记录和对应分段记录。 */
   create(input: CreateTranscriptInput): Promise<CreatedTranscript>;
+  /** 查询指定记录下最新的一版字幕和对应分段。 */
+  findLatestForRecord(
+    input: FindLatestTranscriptForRecordInput,
+  ): Promise<CreatedTranscript | null>;
 };

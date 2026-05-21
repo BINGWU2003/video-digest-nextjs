@@ -1,7 +1,18 @@
 import Link from "next/link";
+import { createSupabaseVideoRecordsRepository } from "@repo/database";
 
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import {
+  displayRecordTitle,
+  formatCreatedBy,
+  formatDateTime,
+  formatTranscriptSource,
+  platformLabels,
+  statusLabels,
+  statusTone,
+} from "@/lib/video-records/view-model";
 
 import {
   AppShell,
@@ -11,24 +22,20 @@ import {
   StatusBadge,
 } from "../_components/app-shell";
 import { ArrowRightIcon, SearchIcon } from "../_components/icons";
-import { records, statusLabels } from "../_data/mock-data";
 
 export const dynamic = "force-dynamic";
 
 const statuses = ["全部", "排队中", "处理中", "已完成", "失败", "已投递"];
 const platforms = ["全部", "YouTube", "Bilibili"];
 
-function statusTone(
-  status: string,
-): "blue" | "green" | "red" | "amber" | "slate" {
-  if (status === "completed") return "green";
-  if (status === "failed") return "red";
-  if (status === "queued") return "amber";
-  return "blue";
-}
-
 export default async function RecordsPage() {
   const user = await requireUser();
+  const supabase = await createClient();
+  const repository = createSupabaseVideoRecordsRepository(supabase);
+  const records = await repository.listForUser({
+    limit: 100,
+    userId: user.id,
+  });
 
   return (
     <AppShell current="/records" userEmail={user.email}>
@@ -47,7 +54,7 @@ export default async function RecordsPage() {
       />
 
       <Panel>
-        <PanelHeader title="筛选" description="第一版先展示静态筛选控件。" />
+        <PanelHeader title="筛选" description="筛选交互后续接入查询参数。" />
         <div className="grid gap-4 p-5 lg:grid-cols-[minmax(220px,1fr)_auto_auto] lg:items-end">
           <div className="grid gap-2">
             <label
@@ -110,7 +117,7 @@ export default async function RecordsPage() {
       <Panel className="mt-5 overflow-hidden">
         <PanelHeader
           title="全部记录"
-          description={`${records.length} 条静态记录`}
+          description={`${records.length} 条真实记录`}
         />
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] border-collapse text-left text-sm">
@@ -134,17 +141,17 @@ export default async function RecordsPage() {
                       href={`/records/${record.id}`}
                       className="font-medium text-slate-950 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
-                      {record.title}
+                      {displayRecordTitle(record)}
                     </Link>
                     <p className="mt-1 truncate text-xs text-slate-500">
                       {record.sourceUrl}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {record.createdBy}
+                      {formatCreatedBy(record)}
                     </p>
                   </td>
                   <td className="px-5 py-4 text-slate-700">
-                    {record.platform}
+                    {platformLabels[record.platform]}
                   </td>
                   <td className="px-5 py-4">
                     <StatusBadge tone={statusTone(record.status)}>
@@ -152,16 +159,16 @@ export default async function RecordsPage() {
                     </StatusBadge>
                   </td>
                   <td className="px-5 py-4 text-slate-600">
-                    {record.createdAt}
+                    {formatDateTime(record.createdAt)}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
-                    {record.completedAt ?? "处理中"}
+                    {formatDateTime(record.completedAt)}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
-                    {record.transcriptSource}
+                    {formatTranscriptSource(record.transcriptSource)}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
-                    {record.deliveryStatus}
+                    {record.sendEmail ? "待投递" : "不投递"}
                   </td>
                   <td className="px-5 py-4">
                     <Button asChild variant="outline" size="sm">
@@ -170,6 +177,16 @@ export default async function RecordsPage() {
                   </td>
                 </tr>
               ))}
+              {records.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="px-5 py-8 text-center text-sm text-slate-500"
+                  >
+                    暂无记录，先从工作台创建一个任务。
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

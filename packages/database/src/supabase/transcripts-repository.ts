@@ -96,6 +96,50 @@ export function createSupabaseTranscriptsRepository(
         ),
       };
     },
+
+    async findLatestForRecord(input) {
+      const { data: transcriptData, error: transcriptError } = await client
+        .from("transcripts")
+        .select("*")
+        .eq("record_id", input.recordId)
+        .eq("user_id", input.userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (transcriptError) {
+        throw new DatabaseQueryError("查询字幕记录失败。", transcriptError);
+      }
+
+      if (!transcriptData) {
+        return null;
+      }
+
+      const transcript = mapTranscriptRow(
+        transcriptData as SupabaseTranscriptRow,
+      );
+
+      const segmentLimit = input.segmentLimit ?? 200;
+      const { data: segmentData, error: segmentError } = await client
+        .from("transcript_segments")
+        .select("*")
+        .eq("transcript_id", transcript.id)
+        .eq("record_id", input.recordId)
+        .eq("user_id", input.userId)
+        .order("sort_order", { ascending: true })
+        .range(0, segmentLimit - 1);
+
+      if (segmentError) {
+        throw new DatabaseQueryError("查询字幕分段失败。", segmentError);
+      }
+
+      return {
+        transcript,
+        segments: (segmentData ?? []).map((row) =>
+          mapTranscriptSegmentRow(row as SupabaseTranscriptSegmentRow),
+        ),
+      };
+    },
   };
 }
 

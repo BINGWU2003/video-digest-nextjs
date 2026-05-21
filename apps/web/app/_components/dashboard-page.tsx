@@ -1,13 +1,14 @@
 import Link from "next/link";
+import type { VideoRecordRow } from "@repo/database";
 
 import { Button } from "@/components/ui/button";
-
 import {
-  records,
+  displayRecordTitle,
+  formatDateTime,
   statusLabels,
-  usageStats,
-  verifiedEmails,
-} from "../_data/mock-data";
+  statusTone,
+} from "@/lib/video-records/view-model";
+
 import {
   AppShell,
   PageHeader,
@@ -17,22 +18,23 @@ import {
 } from "./app-shell";
 import { ArrowRightIcon, MailIcon, VideoIcon } from "./icons";
 
-function statusTone(status: string) {
-  if (status === "completed") return "green";
-  if (status === "failed") return "red";
-  if (status === "queued") return "amber";
-  return "blue";
-}
+import { createVideoDigestJobAction } from "../dashboard/actions";
 
-export function DashboardPage({ userEmail }: { userEmail?: string }) {
+export function DashboardPage({
+  errorMessage,
+  records,
+  userEmail,
+}: {
+  errorMessage?: string;
+  records: VideoRecordRow[];
+  userEmail?: string;
+}) {
   const completedCount = records.filter(
     (record) => record.status === "completed",
   ).length;
   const activeCount = records.filter(
     (record) => record.status !== "completed" && record.status !== "failed",
   ).length;
-  const defaultEmail = verifiedEmails.find((email) => email.default);
-  const audioUsage = usageStats.find((stat) => stat.label === "音频转写时长");
 
   return (
     <AppShell current="/dashboard" userEmail={userEmail}>
@@ -54,9 +56,14 @@ export function DashboardPage({ userEmail }: { userEmail?: string }) {
         <Panel>
           <PanelHeader
             title="新建视频任务"
-            description="第一版先使用静态控件，后续会映射到 create_video_digest_job 写操作。"
+            description="提交后会创建真实记录并投递到 worker 队列。"
           />
-          <form className="grid gap-5 p-5">
+          <form action={createVideoDigestJobAction} className="grid gap-5 p-5">
+            {errorMessage ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {errorMessage}
+              </div>
+            ) : null}
             <div className="grid gap-2">
               <label
                 htmlFor="video-url"
@@ -67,12 +74,13 @@ export function DashboardPage({ userEmail }: { userEmail?: string }) {
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   id="video-url"
-                  name="video-url"
+                  name="url"
                   type="url"
+                  required
                   placeholder="https://www.youtube.com/watch?v=... 或 https://www.bilibili.com/video/BV..."
                   className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
-                <Button type="button" className="sm:w-36">
+                <Button type="submit" className="sm:w-36">
                   <VideoIcon />
                   创建任务
                 </Button>
@@ -88,18 +96,23 @@ export function DashboardPage({ userEmail }: { userEmail?: string }) {
                   平台
                 </legend>
                 <div className="mt-3 grid gap-2 text-sm text-slate-700">
-                  {["自动识别", "YouTube", "Bilibili"].map((item, index) => (
+                  {[
+                    ["auto", "自动识别"],
+                    ["youtube", "YouTube"],
+                    ["bilibili", "Bilibili"],
+                  ].map(([value, label], index) => (
                     <label
-                      key={item}
+                      key={value}
                       className="flex cursor-pointer items-center gap-2"
                     >
                       <input
                         type="radio"
                         name="platform"
+                        value={value}
                         defaultChecked={index === 0}
                         className="size-4 accent-blue-600"
                       />
-                      {item}
+                      {label}
                     </label>
                   ))}
                 </div>
@@ -110,21 +123,25 @@ export function DashboardPage({ userEmail }: { userEmail?: string }) {
                   处理方式
                 </legend>
                 <div className="mt-3 grid gap-2 text-sm text-slate-700">
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="size-4 rounded accent-blue-600"
-                    />
-                    生成摘要
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="size-4 rounded accent-blue-600"
-                    />
-                    无字幕时转写音频
-                  </label>
+                  {[
+                    ["transcript", "只提取字幕"],
+                    ["summary", "提取字幕后生成摘要"],
+                    ["summary_and_email", "生成摘要并邮件投递"],
+                  ].map(([value, label], index) => (
+                    <label
+                      key={value}
+                      className="flex cursor-pointer items-center gap-2"
+                    >
+                      <input
+                        type="radio"
+                        name="outputMode"
+                        value={value}
+                        defaultChecked={index === 0}
+                        className="size-4 accent-blue-600"
+                      />
+                      {label}
+                    </label>
+                  ))}
                 </div>
               </fieldset>
 
@@ -135,14 +152,14 @@ export function DashboardPage({ userEmail }: { userEmail?: string }) {
                 <div className="mt-3 grid gap-2 text-sm text-slate-700">
                   <label className="flex cursor-pointer items-center gap-2">
                     <input
+                      name="fallbackToAudio"
                       type="checkbox"
-                      defaultChecked
                       className="size-4 rounded accent-blue-600"
                     />
-                    发送到默认邮箱
+                    无字幕时转写音频
                   </label>
                   <p className="text-xs text-slate-500">
-                    {defaultEmail?.address}
+                    ASR 模块未接入前，该选项只会进入失败恢复链路。
                   </p>
                 </div>
               </fieldset>
@@ -165,10 +182,10 @@ export function DashboardPage({ userEmail }: { userEmail?: string }) {
               <div className="col-span-2 rounded-lg border border-slate-200 p-4">
                 <p className="text-sm text-slate-500">音频转写</p>
                 <p className="mt-2 text-2xl font-semibold">
-                  {audioUsage?.value ?? "0 分钟"}
+                  待接入
                 </p>
                 <div className="mt-3 h-2 rounded-full bg-slate-100">
-                  <div className="h-2 w-[62%] rounded-full bg-blue-600" />
+                  <div className="h-2 w-0 rounded-full bg-blue-600" />
                 </div>
               </div>
             </div>
@@ -185,10 +202,10 @@ export function DashboardPage({ userEmail }: { userEmail?: string }) {
               </span>
               <div>
                 <p className="font-medium text-slate-950">
-                  {defaultEmail?.address}
+                  {userEmail ?? "未读取到邮箱"}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">
-                  摘要投递会使用这个已验证的默认收件人。
+                  邮件投递模块接入后会使用已验证邮箱。
                 </p>
               </div>
             </div>
@@ -215,18 +232,25 @@ export function DashboardPage({ userEmail }: { userEmail?: string }) {
             >
               <div className="min-w-0">
                 <p className="truncate font-medium text-slate-950">
-                  {record.title}
+                  {displayRecordTitle(record)}
                 </p>
                 <p className="mt-1 truncate text-sm text-slate-500">
                   {record.sourceUrl}
                 </p>
               </div>
-              <p className="text-sm text-slate-600">{record.createdAt}</p>
+              <p className="text-sm text-slate-600">
+                {formatDateTime(record.createdAt)}
+              </p>
               <StatusBadge tone={statusTone(record.status)}>
                 {statusLabels[record.status]}
               </StatusBadge>
             </Link>
           ))}
+          {records.length === 0 ? (
+            <div className="px-5 py-8 text-sm text-slate-500">
+              暂无任务，先提交一个视频链接。
+            </div>
+          ) : null}
         </div>
       </Panel>
     </AppShell>

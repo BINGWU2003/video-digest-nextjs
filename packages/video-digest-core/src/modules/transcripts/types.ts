@@ -42,3 +42,21 @@ export class TranscriptProviderUnavailableError extends Error {
     this.name = "TranscriptProviderUnavailableError";
   }
 }
+
+export class TranscriptNotFoundError extends Error {
+  constructor(platform: VideoPlatform, message: string) {
+    super(`${platform} 未找到可用字幕：${message}`);
+    this.name = "TranscriptNotFoundError";
+  }
+}
+
+export class TranscriptFetchError extends Error {
+  constructor(platform: VideoPlatform, message: string, cause?: unknown) {
+    super(`${platform} 字幕读取失败：${message}`);
+    this.name = "TranscriptFetchError";
+
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
+  }
+}

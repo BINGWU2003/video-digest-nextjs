@@ -49,7 +49,7 @@ src/modules/transcripts/
 
 当前 YouTube provider 使用 YouTube oEmbed 读取标题、作者和封面，不需要 API key；oEmbed 不返回视频时长，所以 `durationSeconds` 暂时写入 null。Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。`persistVideoMetadata()` 已经能把 provider 返回的标题、作者、时长和封面写回 `video_records`。
 
-当前 YouTube/Bilibili 字幕 provider 仍是占位实现，会抛出 `TranscriptProviderUnavailableError`。`persistTranscript()` 已经能创建 `transcripts` 主记录和 `transcript_segments` 分段记录。
+当前 YouTube 字幕 provider 会从视频页面读取公开字幕轨道，再用字幕轨道地址拉取 `json3` 分段字幕，不需要 API key。`persistTranscript()` 已经能创建 `transcripts` 主记录和 `transcript_segments` 分段记录。Bilibili 字幕 provider 仍是占位实现，会抛出 `TranscriptProviderUnavailableError`。
 
 ## 调用方向
 
@@ -70,6 +70,5 @@ pnpm --filter @repo/video-digest-core build
 
 ## 后续计划
 
-1. 接入真实 YouTube 字幕 provider。
-2. 接入 Bilibili 元数据 provider。
-3. 增加 summary 模块。
+1. 接入 Bilibili 元数据 provider。
+2. 增加 summary 模块。

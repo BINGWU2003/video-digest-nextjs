@@ -184,10 +184,39 @@ async function processVideoDigestJob(
       },
     );
 
-    await persistTranscript(dependencies, {
+    const transcriptResult = await persistTranscript(dependencies, {
       recordId: record.id,
       transcript,
       userId: record.userId,
+    });
+
+    const nextStatus =
+      record.outputMode === "transcript" ? "completed" : "summarizing";
+
+    await dependencies.videoRecordsRepository.updateStatusForUser({
+      id: record.id,
+      userId: record.userId,
+      status: nextStatus,
+      expectedStatus: "extracting_transcript",
+      completedAt: nextStatus === "completed" ? new Date() : null,
+    });
+
+    await dependencies.jobEventsRepository.create({
+      recordId: record.id,
+      userId: record.userId,
+      status: nextStatus,
+      message:
+        nextStatus === "completed"
+          ? "字幕已提取完成，任务已完成。"
+          : "字幕已提取完成，等待后续摘要生成模块处理。",
+      metadata: {
+        attemptsMade: context.attemptsMade,
+        language: transcript.language,
+        queueJobId: context.queueJobId,
+        segmentCount: transcriptResult.segments.length,
+        source: transcript.source,
+        transcriptId: transcriptResult.transcript.id,
+      },
     });
   } catch (caught) {
     await markVideoDigestJobFailed(dependencies, payload, context, caught);

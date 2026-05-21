@@ -15,6 +15,7 @@
     "@repo/job-contracts": "workspace:*",
     "@repo/mcp-tools": "workspace:*",
     "@repo/queue": "workspace:*",
+    "@repo/video-digest-core": "workspace:*",
     "@supabase/ssr": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "class-variance-authority": "catalog:",

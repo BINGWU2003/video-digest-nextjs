@@ -137,6 +137,9 @@ importers:
       '@repo/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@repo/video-digest-core':
+        specifier: workspace:*
+        version: link:../../packages/video-digest-core
       '@supabase/ssr':
         specifier: 'catalog:'
         version: 0.10.3(@supabase/supabase-js@2.106.0)

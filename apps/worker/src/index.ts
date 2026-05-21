@@ -137,6 +137,24 @@ async function processVideoDigestJob(
       recordId: record.id,
       userId: record.userId,
     });
+
+    await dependencies.videoRecordsRepository.updateStatusForUser({
+      id: record.id,
+      userId: record.userId,
+      status: "extracting_transcript",
+      expectedStatus: "fetching_metadata",
+    });
+
+    await dependencies.jobEventsRepository.create({
+      recordId: record.id,
+      userId: record.userId,
+      status: "extracting_transcript",
+      message: "视频元数据已写回，开始准备提取字幕。",
+      metadata: {
+        attemptsMade: context.attemptsMade,
+        queueJobId: context.queueJobId,
+      },
+    });
   } catch (caught) {
     await markVideoDigestJobFailed(dependencies, payload, context, caught);
     throw caught;

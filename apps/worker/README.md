@@ -45,6 +45,8 @@ src/index.ts
   -> 写入 job_events(fetching_metadata)
   -> fetchVideoMetadata()
   -> persistVideoMetadata()
+  -> 更新 video_records.status = extracting_transcript
+  -> 写入 job_events(extracting_transcript)
   -> 失败时更新 video_records.status = failed
   -> 失败时写入 job_events(failed)
 ```

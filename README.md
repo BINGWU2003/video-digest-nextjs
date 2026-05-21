@@ -55,6 +55,7 @@ create_video_digest_job
   -> YouTube oEmbed provider / Bilibili placeholder
   -> persistVideoMetadata()
   -> @repo/database VideoRecordsRepository.updateMetadataForUser()
+  -> apps/worker job_events(extracting_transcript)
 ```
 
 暂未完成：

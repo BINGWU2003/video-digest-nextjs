@@ -105,7 +105,19 @@ packages/mcp-tools
     createVideoDigestJobTool
 ```
 
-这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 会根据 `REDIS_URL` 自动选择 BullMQ producer 或 no-op 队列；worker 会消费 BullMQ job，将记录状态推进到 `fetching_metadata`，调用视频元数据模块，元数据写回成功后推进到 `extracting_transcript`，再调用字幕模块，并在失败时写入 `failed` 状态和失败事件。YouTube 元数据 provider 已通过 oEmbed 接入标题、作者和封面读取，元数据写回边界已接入 `video_records`；Bilibili 元数据 provider 仍为占位实现。字幕模块已接入 worker，YouTube 字幕 provider 已支持读取公开字幕轨道并通过 `persistTranscript()` 写入 `transcripts` 和 `transcript_segments`；Bilibili 字幕 provider 仍为占位实现。
+这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 会根据 `REDIS_URL` 自动选择 BullMQ producer 或 no-op 队列；worker 会消费 BullMQ job，将记录状态推进到 `fetching_metadata`，调用视频元数据模块，元数据写回成功后推进到 `extracting_transcript`，再调用字幕模块，并在失败时写入 `failed` 状态和失败事件。YouTube 元数据 provider 已通过 oEmbed 接入标题、作者和封面读取，元数据写回边界已接入 `video_records`；Bilibili 元数据 provider 仍为占位实现。字幕模块已接入 worker，YouTube 字幕 provider 已支持读取公开字幕轨道并通过 `persistTranscript()` 写入 `transcripts` 和 `transcript_segments`；Bilibili 字幕 provider 仍为占位实现。worker 失败时会按错误类型写入细分错误码，便于前端展示和后续重试策略。
+
+## Worker 失败码
+
+| 错误码 | 写入场景 |
+| --- | --- |
+| `metadata_fetch_failed` | 元数据 provider 已接入，但平台元数据请求、解析或校验失败 |
+| `provider_unavailable` | 目标平台的元数据或字幕 provider 尚未接入 |
+| `transcript_fetch_failed` | 字幕 provider 已接入，但字幕页面、字幕轨道请求或解析失败 |
+| `transcript_not_found` | 字幕 provider 已接入，但目标视频没有可用公开字幕 |
+| `worker_processing_failed` | 数据库写入、状态推进或其他未分类的 worker 错误 |
+
+这些错误码会同时写入 `video_records.error_code` 和 `job_events.metadata.errorCode`，错误类名会写入 `job_events.metadata.errorName`。
 
 ## 调用方向
 
@@ -132,4 +144,4 @@ MCP Tool
 1. 模块边界是否符合文档预期。
 2. `video-records`、`job-events`、`usage-events` 模板是否足够清楚，可复制到 transcript、summary、delivery。
 3. 是否继续沿用 repository interface 方式扩展后续模块。
-4. 是否需要在下一步接入 Bilibili 元数据、细化失败码或增加数据库事务封装。
+4. 是否需要在下一步接入 Bilibili 元数据、增加失败恢复策略或增加数据库事务封装。

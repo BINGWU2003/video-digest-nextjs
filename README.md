@@ -62,6 +62,7 @@ create_video_digest_job
   -> persistTranscript()
   -> @repo/database TranscriptsRepository.create()
   -> transcript 输出模式 completed / summary 输出模式 summarizing
+  -> failed 时写入细分 error_code
 ```
 
 暂未完成：

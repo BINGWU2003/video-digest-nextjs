@@ -25,7 +25,12 @@ import {
   fetchVideoMetadata,
   persistTranscript,
   persistVideoMetadata,
+  TranscriptFetchError,
+  TranscriptNotFoundError,
+  TranscriptProviderUnavailableError,
   type TranscriptProviderRegistry,
+  VideoMetadataFetchError,
+  VideoMetadataProviderUnavailableError,
   type VideoMetadataProviderRegistry,
 } from "@repo/video-digest-core";
 import { createClient } from "@supabase/supabase-js";
@@ -106,6 +111,19 @@ type ProcessVideoDigestJobDependencies = {
   transcriptProviderRegistry: TranscriptProviderRegistry;
   transcriptsRepository: TranscriptsRepository;
   videoRecordsRepository: VideoRecordsRepository;
+};
+
+type VideoDigestJobFailureCode =
+  | "metadata_fetch_failed"
+  | "provider_unavailable"
+  | "transcript_fetch_failed"
+  | "transcript_not_found"
+  | "worker_processing_failed";
+
+type VideoDigestJobFailure = {
+  code: VideoDigestJobFailureCode;
+  message: string;
+  name: string | null;
 };
 
 async function processVideoDigestJob(
@@ -230,15 +248,15 @@ async function markVideoDigestJobFailed(
   context: VideoDigestWorkerContext,
   caught: unknown,
 ) {
-  const errorMessage = toErrorMessage(caught);
+  const failure = resolveVideoDigestJobFailure(caught);
 
   try {
     await dependencies.videoRecordsRepository.updateStatusForUser({
       id: payload.recordId,
       userId: payload.userId,
       status: "failed",
-      errorCode: "worker_processing_failed",
-      errorMessage,
+      errorCode: failure.code,
+      errorMessage: failure.message,
       completedAt: new Date(),
     });
 
@@ -246,10 +264,11 @@ async function markVideoDigestJobFailed(
       recordId: payload.recordId,
       userId: payload.userId,
       status: "failed",
-      message: errorMessage,
+      message: failure.message,
       metadata: {
         attemptsMade: context.attemptsMade,
-        errorCode: "worker_processing_failed",
+        errorCode: failure.code,
+        errorName: failure.name,
         queueJobId: context.queueJobId,
       },
     });
@@ -259,6 +278,52 @@ async function markVideoDigestJobFailed(
       failureUpdateError,
     );
   }
+}
+
+function resolveVideoDigestJobFailure(caught: unknown): VideoDigestJobFailure {
+  const message = toErrorMessage(caught);
+  const name = caught instanceof Error ? caught.name : null;
+
+  if (
+    caught instanceof VideoMetadataProviderUnavailableError ||
+    caught instanceof TranscriptProviderUnavailableError
+  ) {
+    return {
+      code: "provider_unavailable",
+      message,
+      name,
+    };
+  }
+
+  if (caught instanceof VideoMetadataFetchError) {
+    return {
+      code: "metadata_fetch_failed",
+      message,
+      name,
+    };
+  }
+
+  if (caught instanceof TranscriptNotFoundError) {
+    return {
+      code: "transcript_not_found",
+      message,
+      name,
+    };
+  }
+
+  if (caught instanceof TranscriptFetchError) {
+    return {
+      code: "transcript_fetch_failed",
+      message,
+      name,
+    };
+  }
+
+  return {
+    code: "worker_processing_failed",
+    message,
+    name,
+  };
 }
 
 function toErrorMessage(caught: unknown) {

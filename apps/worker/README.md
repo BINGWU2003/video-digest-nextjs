@@ -59,6 +59,16 @@ src/index.ts
 
 当前 YouTube 字幕 provider 会从视频页面读取公开字幕轨道，并将字幕全文和分段写入 `transcripts`、`transcript_segments`。Bilibili 字幕 provider 仍是占位实现，因此 Bilibili 任务会在字幕阶段触发失败链路。
 
+失败时会同时更新 `video_records.error_code` 和 `job_events.metadata.errorCode`：
+
+| 错误码 | 含义 |
+| --- | --- |
+| `metadata_fetch_failed` | 视频元数据 provider 已接入，但读取平台元数据失败 |
+| `provider_unavailable` | 当前平台的元数据或字幕 provider 尚未接入 |
+| `transcript_fetch_failed` | 字幕 provider 已接入，但读取字幕内容失败 |
+| `transcript_not_found` | 平台视频没有可用公开字幕 |
+| `worker_processing_failed` | 其他未分类的 worker 处理错误 |
+
 ## 常用命令
 
 ```bash
@@ -73,4 +83,4 @@ pnpm --filter worker start
 
 1. 接入 Bilibili 元数据 provider。
 2. 接入摘要生成和邮件投递。
-3. 增加更细的失败码和恢复策略。
+3. 增加失败恢复策略和重试策略。

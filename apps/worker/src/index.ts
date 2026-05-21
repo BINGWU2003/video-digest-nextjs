@@ -1,7 +1,9 @@
 import {
   createSupabaseJobEventsRepository,
+  createSupabaseTranscriptsRepository,
   createSupabaseVideoRecordsRepository,
   type JobEventsRepository,
+  type TranscriptsRepository,
   type VideoRecordsRepository,
 } from "@repo/database";
 import {
@@ -13,11 +15,17 @@ import {
   type VideoDigestWorkerHandle,
 } from "@repo/queue";
 import {
+  createBilibiliTranscriptProvider,
   createBilibiliVideoMetadataProvider,
+  createTranscriptProviderRegistry,
   createVideoMetadataProviderRegistry,
+  createYoutubeTranscriptProvider,
   createYoutubeVideoMetadataProvider,
+  fetchTranscript,
   fetchVideoMetadata,
+  persistTranscript,
   persistVideoMetadata,
+  type TranscriptProviderRegistry,
   type VideoMetadataProviderRegistry,
 } from "@repo/video-digest-core";
 import { createClient } from "@supabase/supabase-js";
@@ -57,10 +65,15 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
   );
 
   const jobEventsRepository = createSupabaseJobEventsRepository(supabase);
+  const transcriptsRepository = createSupabaseTranscriptsRepository(supabase);
   const videoRecordsRepository = createSupabaseVideoRecordsRepository(supabase);
   const metadataProviderRegistry = createVideoMetadataProviderRegistry([
     createYoutubeVideoMetadataProvider(),
     createBilibiliVideoMetadataProvider(),
+  ]);
+  const transcriptProviderRegistry = createTranscriptProviderRegistry([
+    createYoutubeTranscriptProvider(),
+    createBilibiliTranscriptProvider(),
   ]);
 
   const worker = createBullMqVideoDigestWorker({
@@ -70,6 +83,8 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
         {
           jobEventsRepository,
           metadataProviderRegistry,
+          transcriptProviderRegistry,
+          transcriptsRepository,
           videoRecordsRepository,
         },
         payload,
@@ -88,6 +103,8 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
 type ProcessVideoDigestJobDependencies = {
   jobEventsRepository: JobEventsRepository;
   metadataProviderRegistry: VideoMetadataProviderRegistry;
+  transcriptProviderRegistry: TranscriptProviderRegistry;
+  transcriptsRepository: TranscriptsRepository;
   videoRecordsRepository: VideoRecordsRepository;
 };
 
@@ -154,6 +171,23 @@ async function processVideoDigestJob(
         attemptsMade: context.attemptsMade,
         queueJobId: context.queueJobId,
       },
+    });
+
+    const transcript = await fetchTranscript(
+      {
+        providerRegistry: dependencies.transcriptProviderRegistry,
+      },
+      {
+        fallbackToAudio: record.fallbackToAudio,
+        platform: record.platform,
+        sourceUrl: record.sourceUrl,
+      },
+    );
+
+    await persistTranscript(dependencies, {
+      recordId: record.id,
+      transcript,
+      userId: record.userId,
     });
   } catch (caught) {
     await markVideoDigestJobFailed(dependencies, payload, context, caught);

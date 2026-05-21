@@ -57,8 +57,7 @@ create_video_digest_job
   -> persistVideoMetadata()
   -> @repo/database VideoRecordsRepository.updateMetadataForUser()
   -> apps/worker job_events(extracting_transcript)
-
-@repo/video-digest-core fetchTranscript()
+  -> @repo/video-digest-core fetchTranscript()
   -> TranscriptProvider placeholder
   -> persistTranscript()
   -> @repo/database TranscriptsRepository.create()
@@ -67,7 +66,7 @@ create_video_digest_job
 暂未完成：
 
 - Bilibili 元数据读取。
-- 真实字幕读取。
+- 真实 YouTube/Bilibili 字幕读取。
 - ASR、LLM summary 和邮件投递实现。
 
 ## 本地开发

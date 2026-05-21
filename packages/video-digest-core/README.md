@@ -70,7 +70,6 @@ pnpm --filter @repo/video-digest-core build
 
 ## 后续计划
 
-1. 将 worker 串接到字幕模块。
-2. 接入真实 YouTube 字幕 provider。
-3. 接入 Bilibili 元数据 provider。
-4. 增加 summary 模块。
+1. 接入真实 YouTube 字幕 provider。
+2. 接入 Bilibili 元数据 provider。
+3. 增加 summary 模块。

@@ -47,11 +47,15 @@ src/index.ts
   -> persistVideoMetadata()
   -> 更新 video_records.status = extracting_transcript
   -> 写入 job_events(extracting_transcript)
+  -> fetchTranscript()
+  -> persistTranscript()
   -> 失败时更新 video_records.status = failed
   -> 失败时写入 job_events(failed)
 ```
 
 当前 YouTube provider 使用 oEmbed 读取标题、作者和封面；Bilibili provider 仍是占位实现，因此 Bilibili 任务会在 `fetchVideoMetadata()` 阶段触发失败链路。这用于验证失败状态和失败事件可以完整落库。
+
+当前 YouTube/Bilibili 字幕 provider 仍是占位实现，因此元数据写回成功的任务会推进到 `extracting_transcript`，随后在 `fetchTranscript()` 阶段触发失败链路。后续接入真实字幕 provider 后，`persistTranscript()` 会写入 `transcripts` 和 `transcript_segments`。
 
 ## 常用命令
 
@@ -65,6 +69,7 @@ pnpm --filter worker start
 
 ## 后续计划
 
-1. 接入 Bilibili 元数据 provider。
-2. 接入字幕提取、摘要生成和邮件投递。
-3. 增加更细的失败码和恢复策略。
+1. 接入真实 YouTube 字幕 provider。
+2. 接入 Bilibili 元数据 provider。
+3. 接入摘要生成和邮件投递。
+4. 增加更细的失败码和恢复策略。

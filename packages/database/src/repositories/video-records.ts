@@ -59,6 +59,21 @@ export type UpdateVideoRecordStatusForUserInput = {
   completedAt?: Date | null;
 };
 
+export type UpdateVideoRecordMetadataForUserInput = {
+  /** 视频记录 ID。 */
+  id: string;
+  /** 记录所属用户 ID，来自 Supabase Auth。 */
+  userId: string;
+  /** 视频标题；平台未返回时写 null。 */
+  title: string | null;
+  /** 视频作者、频道或 UP 主名称；平台未返回时写 null。 */
+  author: string | null;
+  /** 视频时长，单位秒；平台未返回时写 null。 */
+  durationSeconds: number | null;
+  /** 视频封面图地址；平台未返回时写 null。 */
+  thumbnailUrl: string | null;
+};
+
 export type VideoRecordsRepository = {
   /** 创建一条排队中的视频记录，并返回已持久化的数据行。 */
   create(input: CreateVideoRecordInput): Promise<VideoRecordRow>;
@@ -74,5 +89,9 @@ export type VideoRecordsRepository = {
   /** 在指定用户的数据边界内更新视频记录状态，并返回更新后的数据行。 */
   updateStatusForUser(
     input: UpdateVideoRecordStatusForUserInput,
+  ): Promise<VideoRecordRow>;
+  /** 在指定用户的数据边界内写回视频平台元数据，并返回更新后的数据行。 */
+  updateMetadataForUser(
+    input: UpdateVideoRecordMetadataForUserInput,
   ): Promise<VideoRecordRow>;
 };

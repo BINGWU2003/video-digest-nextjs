@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
   CreateVideoRecordInput,
+  UpdateVideoRecordMetadataForUserInput,
   UpdateVideoRecordStatusForUserInput,
   VideoRecordsRepository,
 } from "../repositories/video-records.js";
@@ -50,6 +51,13 @@ type SupabaseUpdateVideoRecordStatusInput = {
   error_code?: string | null;
   error_message?: string | null;
   completed_at?: string | null;
+};
+
+type SupabaseUpdateVideoRecordMetadataInput = {
+  title: string | null;
+  author: string | null;
+  duration_seconds: number | null;
+  thumbnail_url: string | null;
 };
 
 export function createSupabaseVideoRecordsRepository(
@@ -146,6 +154,30 @@ export function createSupabaseVideoRecordsRepository(
 
       return mapVideoRecordRow(data as SupabaseVideoRecordRow);
     },
+
+    async updateMetadataForUser(input) {
+      const { data, error } = await client
+        .from("video_records")
+        .update(toSupabaseMetadataUpdateInput(input))
+        .eq("id", input.id)
+        .eq("user_id", input.userId)
+        .is("deleted_at", null)
+        .select("*")
+        .maybeSingle();
+
+      if (error) {
+        throw new DatabaseQueryError("更新视频元数据失败。", error);
+      }
+
+      if (!data) {
+        throw new DatabaseQueryError(
+          "更新视频元数据失败：记录不存在或已删除。",
+          null,
+        );
+      }
+
+      return mapVideoRecordRow(data as SupabaseVideoRecordRow);
+    },
   };
 }
 
@@ -185,6 +217,17 @@ function toSupabaseStatusUpdateInput(
   }
 
   return updateInput;
+}
+
+function toSupabaseMetadataUpdateInput(
+  input: UpdateVideoRecordMetadataForUserInput,
+): SupabaseUpdateVideoRecordMetadataInput {
+  return {
+    title: input.title,
+    author: input.author,
+    duration_seconds: input.durationSeconds,
+    thumbnail_url: input.thumbnailUrl,
+  };
 }
 
 function mapVideoRecordRow(row: SupabaseVideoRecordRow): VideoRecordRow {

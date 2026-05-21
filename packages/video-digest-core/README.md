@@ -32,12 +32,13 @@ src/modules/video-metadata/
   VideoMetadata
   VideoMetadataProvider
   fetchVideoMetadata()
+  persistVideoMetadata()
   createVideoMetadataProviderRegistry()
   createYoutubeVideoMetadataProvider()
   createBilibiliVideoMetadataProvider()
 ```
 
-当前 YouTube/Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。下一步接真实抓取时，只替换 provider 内部实现，调用方继续使用统一接口。
+当前 YouTube/Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。`persistVideoMetadata()` 已经能把 provider 返回的标题、作者、时长和封面写回 `video_records`；下一步接真实抓取时，只替换 provider 内部实现，调用方继续使用统一接口。
 
 ## 调用方向
 

@@ -55,6 +55,8 @@ create_video_digest_job
 @repo/video-digest-core fetchVideoMetadata()
   -> VideoMetadataProvider
   -> YouTube/Bilibili provider placeholder
+  -> persistVideoMetadata()
+  -> @repo/database VideoRecordsRepository.updateMetadataForUser()
 ```
 
 暂未完成：

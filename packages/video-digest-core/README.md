@@ -38,7 +38,7 @@ src/modules/video-metadata/
   createBilibiliVideoMetadataProvider()
 ```
 
-当前 YouTube/Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。`persistVideoMetadata()` 已经能把 provider 返回的标题、作者、时长和封面写回 `video_records`；下一步接真实抓取时，只替换 provider 内部实现，调用方继续使用统一接口。
+当前 YouTube provider 使用 YouTube oEmbed 读取标题、作者和封面，不需要 API key；oEmbed 不返回视频时长，所以 `durationSeconds` 暂时写入 null。Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。`persistVideoMetadata()` 已经能把 provider 返回的标题、作者、时长和封面写回 `video_records`。
 
 ## 调用方向
 
@@ -59,7 +59,7 @@ pnpm --filter @repo/video-digest-core build
 
 ## 后续计划
 
-1. 接入真实视频元数据 provider。
-2. 增加 transcript 模块。
-3. 增加 summary 模块。
-4. 增加 delivery 模块。
+1. 接入 Bilibili 元数据 provider。
+2. 为 YouTube 增加可选 Data API v3 时长读取。
+3. 增加 transcript 模块。
+4. 增加 summary 模块。

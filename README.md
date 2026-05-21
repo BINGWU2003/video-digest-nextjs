@@ -52,15 +52,15 @@ create_video_digest_job
   -> @repo/queue VideoDigestQueue
   -> apps/worker job_events(fetching_metadata)
   -> @repo/video-digest-core fetchVideoMetadata()
-  -> VideoMetadataProvider placeholder
+  -> YouTube oEmbed provider / Bilibili placeholder
   -> persistVideoMetadata()
   -> @repo/database VideoRecordsRepository.updateMetadataForUser()
 ```
 
 暂未完成：
 
-- worker 侧真实视频元数据读取。
-- 视频 provider、ASR、LLM summary 和邮件投递实现。
+- Bilibili 元数据读取。
+- ASR、LLM summary 和邮件投递实现。
 
 ## 本地开发
 

@@ -376,6 +376,9 @@ importers:
       '@repo/queue':
         specifier: workspace:*
         version: link:../queue
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*

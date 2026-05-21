@@ -49,7 +49,7 @@ src/index.ts
   -> 失败时写入 job_events(failed)
 ```
 
-当前 YouTube/Bilibili provider 仍是占位实现，因此 worker 会在 `fetchVideoMetadata()` 阶段触发失败链路。这用于验证失败状态和失败事件可以完整落库。
+当前 YouTube provider 使用 oEmbed 读取标题、作者和封面；Bilibili provider 仍是占位实现，因此 Bilibili 任务会在 `fetchVideoMetadata()` 阶段触发失败链路。这用于验证失败状态和失败事件可以完整落库。
 
 ## 常用命令
 
@@ -63,6 +63,6 @@ pnpm --filter worker start
 
 ## 后续计划
 
-1. 接入真实视频元数据 provider。
+1. 接入 Bilibili 元数据 provider。
 2. 接入字幕提取、摘要生成和邮件投递。
 3. 增加更细的失败码和恢复策略。

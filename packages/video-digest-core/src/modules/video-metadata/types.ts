@@ -35,3 +35,14 @@ export class VideoMetadataProviderUnavailableError extends Error {
     this.name = "VideoMetadataProviderUnavailableError";
   }
 }
+
+export class VideoMetadataFetchError extends Error {
+  constructor(
+    platform: VideoPlatform,
+    message: string,
+    readonly cause?: unknown,
+  ) {
+    super(`${platform} 视频元数据读取失败：${message}`);
+    this.name = "VideoMetadataFetchError";
+  }
+}

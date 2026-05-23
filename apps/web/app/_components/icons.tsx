@@ -20,6 +20,24 @@ export function ArrowRightIcon({ className = "size-4" }: IconProps) {
   );
 }
 
+export function ArrowUpIcon({ className = "size-4" }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 19V5" />
+      <path d="m5 12 7-7 7 7" />
+    </svg>
+  );
+}
+
 export function CopyIcon({ className = "size-4" }: IconProps) {
   return (
     <svg

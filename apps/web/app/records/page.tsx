@@ -301,7 +301,7 @@ export default async function RecordsPage({
             </tbody>
           </table>
         </div>
-        {databaseErrorMessage || totalPages <= 1 ? null : (
+        {databaseErrorMessage ? null : (
           <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-500">
               第 {selectedPage} / {totalPages} 页

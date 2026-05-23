@@ -3,6 +3,10 @@ import {
   createSupabaseVideoRecordsRepository,
   isMissingDatabaseSchemaError,
   type VideoRecordRow,
+  type VideoRecordStatus,
+  type VideoPlatform,
+  videoPlatforms,
+  videoRecordStatuses,
 } from "@repo/database";
 
 import { Button } from "@/components/ui/button";
@@ -29,10 +33,49 @@ import { ArrowRightIcon, SearchIcon } from "../_components/icons";
 
 export const dynamic = "force-dynamic";
 
-const statuses = ["全部", "排队中", "处理中", "已完成", "失败", "已投递"];
-const platforms = ["全部", "YouTube", "Bilibili"];
+type RecordsSearchParams = {
+  platform?: string;
+  q?: string;
+  status?: string;
+};
 
-export default async function RecordsPage() {
+const statusFilters: Array<{
+  label: string;
+  value: VideoRecordStatus | "active" | null;
+}> = [
+  { label: "全部", value: null },
+  { label: "排队中", value: "queued" },
+  { label: "处理中", value: "active" },
+  { label: "已完成", value: "completed" },
+  { label: "失败", value: "failed" },
+  { label: "投递中", value: "delivering" },
+];
+const platformFilters: Array<{
+  label: string;
+  value: VideoPlatform | null;
+}> = [
+  { label: "全部", value: null },
+  { label: "YouTube", value: "youtube" },
+  { label: "Bilibili", value: "bilibili" },
+];
+const activeStatuses: VideoRecordStatus[] = [
+  "fetching_metadata",
+  "extracting_transcript",
+  "extracting_audio",
+  "transcribing_audio",
+  "summarizing",
+  "delivering",
+];
+
+export default async function RecordsPage({
+  searchParams,
+}: {
+  searchParams: Promise<RecordsSearchParams>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const selectedStatus = parseStatusFilter(resolvedSearchParams.status);
+  const selectedPlatform = parsePlatformFilter(resolvedSearchParams.platform);
+  const query = normalizeSearchQuery(resolvedSearchParams.q);
   const user = await requireUser();
   const supabase = await createClient();
   const repository = createSupabaseVideoRecordsRepository(supabase);
@@ -42,8 +85,21 @@ export default async function RecordsPage() {
   try {
     records = await repository.listForUser({
       limit: 100,
+      platform: selectedPlatform ?? undefined,
+      status:
+        selectedStatus && selectedStatus !== "active"
+          ? selectedStatus
+          : undefined,
       userId: user.id,
     });
+
+    if (selectedStatus === "active") {
+      records = records.filter((record) => activeStatuses.includes(record.status));
+    }
+
+    if (query) {
+      records = records.filter((record) => recordMatchesQuery(record, query));
+    }
   } catch (caught) {
     if (!isMissingDatabaseSchemaError(caught)) {
       throw caught;
@@ -70,9 +126,9 @@ export default async function RecordsPage() {
       />
 
       <Panel>
-        <PanelHeader title="筛选" description="筛选交互后续接入查询参数。" />
+        <PanelHeader title="筛选" description="按状态、平台和关键词查找任务。" />
         <div className="grid gap-4 p-5 lg:grid-cols-[minmax(220px,1fr)_auto_auto] lg:items-end">
-          <div className="grid gap-2">
+          <form action="/records" className="grid gap-2">
             <label
               htmlFor="record-search"
               className="text-sm font-medium text-slate-800"
@@ -83,28 +139,38 @@ export default async function RecordsPage() {
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
               <input
                 id="record-search"
+                name="q"
                 type="search"
-                placeholder="搜索标题、链接、摘要内容或失败原因"
+                defaultValue={query ?? ""}
+                placeholder="搜索标题、作者、链接或失败原因"
                 className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
-          </div>
+            {selectedStatus ? (
+              <input name="status" type="hidden" value={selectedStatus} />
+            ) : null}
+            {selectedPlatform ? (
+              <input name="platform" type="hidden" value={selectedPlatform} />
+            ) : null}
+          </form>
 
           <div className="grid gap-2">
             <p className="text-sm font-medium text-slate-800">状态</p>
             <div className="flex flex-wrap gap-1">
-              {statuses.map((status, index) => (
-                <button
-                  key={status}
-                  type="button"
-                  className={`cursor-pointer rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                    index === 0
+              {statusFilters.map((status) => (
+                <Link
+                  key={status.label}
+                  href={buildRecordsHref(resolvedSearchParams, {
+                    status: status.value,
+                  })}
+                  className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                    selectedStatus === status.value
                       ? "border-slate-900 bg-slate-900 text-white"
                       : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950"
                   }`}
                 >
-                  {status}
-                </button>
+                  {status.label}
+                </Link>
               ))}
             </div>
           </div>
@@ -112,18 +178,20 @@ export default async function RecordsPage() {
           <div className="grid gap-2">
             <p className="text-sm font-medium text-slate-800">平台</p>
             <div className="flex flex-wrap gap-1">
-              {platforms.map((platform, index) => (
-                <button
-                  key={platform}
-                  type="button"
-                  className={`cursor-pointer rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                    index === 0
+              {platformFilters.map((platform) => (
+                <Link
+                  key={platform.label}
+                  href={buildRecordsHref(resolvedSearchParams, {
+                    platform: platform.value,
+                  })}
+                  className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                    selectedPlatform === platform.value
                       ? "border-blue-600 bg-blue-600 text-white"
                       : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950"
                   }`}
                 >
-                  {platform}
-                </button>
+                  {platform.label}
+                </Link>
               ))}
             </div>
           </div>
@@ -211,4 +279,72 @@ export default async function RecordsPage() {
       </Panel>
     </AppShell>
   );
+}
+
+function parseStatusFilter(value: string | undefined) {
+  if (value === "active") {
+    return value;
+  }
+
+  return videoRecordStatuses.find((status) => status === value) ?? null;
+}
+
+function parsePlatformFilter(value: string | undefined) {
+  return videoPlatforms.find((platform) => platform === value) ?? null;
+}
+
+function normalizeSearchQuery(value: string | undefined) {
+  const query = value?.trim() ?? "";
+  return query.length > 0 ? query : null;
+}
+
+function buildRecordsHref(
+  currentParams: RecordsSearchParams,
+  nextParams: {
+    platform?: VideoPlatform | null;
+    status?: VideoRecordStatus | "active" | null;
+  },
+) {
+  const params = new URLSearchParams();
+  const query = normalizeSearchQuery(currentParams.q);
+  const status =
+    nextParams.status === undefined
+      ? parseStatusFilter(currentParams.status)
+      : nextParams.status;
+  const platform =
+    nextParams.platform === undefined
+      ? parsePlatformFilter(currentParams.platform)
+      : nextParams.platform;
+
+  if (query) {
+    params.set("q", query);
+  }
+
+  if (status) {
+    params.set("status", status);
+  }
+
+  if (platform) {
+    params.set("platform", platform);
+  }
+
+  const queryString = params.toString();
+
+  return queryString ? `/records?${queryString}` : "/records";
+}
+
+function recordMatchesQuery(record: VideoRecordRow, query: string) {
+  const normalizedQuery = query.toLowerCase();
+  const haystack = [
+    record.title,
+    record.author,
+    record.sourceUrl,
+    record.errorCode,
+    record.errorMessage,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join("\n")
+    .toLowerCase();
+
+  return haystack.includes(normalizedQuery);
 }

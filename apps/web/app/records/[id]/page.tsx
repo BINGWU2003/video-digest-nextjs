@@ -29,6 +29,7 @@ import {
   StatusBadge,
 } from "../../_components/app-shell";
 import { CopyIcon, MailIcon, RefreshIcon } from "../../_components/icons";
+import { retryVideoDigestJobAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -88,10 +89,17 @@ export default async function RecordDetailPage({
             <Button asChild variant="outline">
               <Link href={record.sourceUrl}>打开源视频</Link>
             </Button>
-            <Button variant="outline" disabled>
-              <RefreshIcon />
-              重试
-            </Button>
+            <form action={retryVideoDigestJobAction}>
+              <input name="id" type="hidden" value={record.id} />
+              <Button
+                disabled={record.status !== "failed"}
+                type="submit"
+                variant="outline"
+              >
+                <RefreshIcon />
+                重试
+              </Button>
+            </form>
             <Button disabled>
               <MailIcon />
               发送邮件

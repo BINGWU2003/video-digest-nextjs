@@ -22,10 +22,16 @@ export type EnqueuedVideoDigestJob = {
   payload: VideoDigestQueuePayload;
 };
 
+export type EnqueueVideoDigestJobOptions = {
+  /** BullMQ job ID，用于重试时避开旧失败 job 的 ID 冲突。 */
+  queueJobId?: string;
+};
+
 export type VideoDigestQueue = {
   /** 投递一个视频摘要后台处理任务。 */
   enqueueVideoDigestJob(
     payload: VideoDigestQueuePayload,
+    options?: EnqueueVideoDigestJobOptions,
   ): Promise<EnqueuedVideoDigestJob>;
 };
 
@@ -66,11 +72,11 @@ export type BullMqVideoDigestWorkerOptions = {
 
 export function createNoopVideoDigestQueue(): VideoDigestQueue {
   return {
-    async enqueueVideoDigestJob(payload) {
+    async enqueueVideoDigestJob(payload, options) {
       return {
         queueName: videoDigestQueueName,
         jobName: videoDigestJobName,
-        queueJobId: null,
+        queueJobId: options?.queueJobId ?? null,
         payload,
       };
     },
@@ -86,10 +92,10 @@ export function createBullMqVideoDigestQueue(
   });
 
   return {
-    async enqueueVideoDigestJob(payload) {
+    async enqueueVideoDigestJob(payload, options) {
       const job = await queue.add(videoDigestJobName, payload, {
         attempts: 1,
-        jobId: payload.recordId,
+        jobId: options?.queueJobId ?? payload.recordId,
         removeOnComplete: {
           age: 60 * 60 * 24 * 7,
           count: 1_000,

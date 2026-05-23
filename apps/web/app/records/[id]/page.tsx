@@ -32,6 +32,7 @@ import {
 } from "../../_components/app-shell";
 import { CopyIcon, MailIcon, RefreshIcon } from "../../_components/icons";
 import { retryVideoDigestJobAction } from "./actions";
+import { RecordAutoRefresh } from "./auto-refresh";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,7 @@ export default async function RecordDetailPage({
 
   return (
     <AppShell current="/records" userEmail={user.email}>
+      <RecordAutoRefresh status={record.status} />
       <PageHeader
         eyebrow="记录详情"
         title={title}

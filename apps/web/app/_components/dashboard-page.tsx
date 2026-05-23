@@ -127,21 +127,30 @@ export function DashboardPage({
                     ["transcript", "只提取字幕"],
                     ["summary", "提取字幕后生成摘要"],
                     ["summary_and_email", "生成摘要并邮件投递"],
-                  ].map(([value, label], index) => (
+                  ].map(([value, label], index) => {
+                    const disabled = value === "summary_and_email";
+
+                    return (
                     <label
                       key={value}
-                      className="flex cursor-pointer items-center gap-2"
+                      className={`flex items-center gap-2 ${
+                        disabled
+                          ? "cursor-not-allowed text-slate-400"
+                          : "cursor-pointer"
+                      }`}
                     >
                       <input
                         type="radio"
                         name="outputMode"
                         value={value}
+                        disabled={disabled}
                         defaultChecked={index === 0}
                         className="size-4 accent-blue-600"
                       />
                       {label}
                     </label>
-                  ))}
+                    );
+                  })}
                 </div>
               </fieldset>
 

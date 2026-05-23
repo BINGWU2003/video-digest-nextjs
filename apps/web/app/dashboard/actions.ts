@@ -16,11 +16,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function createVideoDigestJobAction(formData: FormData) {
   const user = await requireUser();
+  const outputMode =
+    formData.get("outputMode") === "summary_and_email"
+      ? "summary"
+      : (formData.get("outputMode") ?? "transcript");
   const parsedInput = createVideoDigestJobInputSchema.safeParse({
     fallbackToAudio: formData.get("fallbackToAudio") === "on",
-    outputMode: formData.get("outputMode") ?? "transcript",
+    outputMode,
     platform: formData.get("platform") ?? "auto",
-    sendEmail: formData.get("outputMode") === "summary_and_email",
+    sendEmail: false,
     url: formData.get("url"),
   });
 

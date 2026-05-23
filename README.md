@@ -37,15 +37,16 @@ supabase/migrations/   Supabase SQL migrations
 
 已完成：
 
-- Web 静态产品界面和 Supabase 登录骨架。
+- Web 产品界面、Supabase 登录骨架，以及 Dashboard 创建真实任务。
 - 数据库表结构设计文档。
 - 后端模块骨架。
-- `video-records` 创建链路、记录读取 API、任务事件/用量事件写入，以及 BullMQ/Redis 队列 producer/consumer 边界：
+- `video-records` 创建链路、记录读取页面/API、任务事件/用量事件写入，以及 BullMQ/Redis 队列 producer/consumer 边界：
 - 视频元数据 provider interface 骨架：
 - 字幕 provider interface 和写回骨架：
 
 ```txt
 create_video_digest_job
+  -> apps/web Dashboard server action 或 POST /api/records
   -> @repo/video-digest-core createVideoRecord()
   -> @repo/database VideoRecordsRepository
   -> @repo/database JobEventsRepository
@@ -61,6 +62,7 @@ create_video_digest_job
   -> YouTube transcript provider / Bilibili placeholder
   -> persistTranscript()
   -> @repo/database TranscriptsRepository.create()
+  -> apps/web /records/[id] 读取最新字幕分段
   -> transcript 输出模式 completed / summary 输出模式 summarizing
   -> failed 时写入细分 error_code
 ```

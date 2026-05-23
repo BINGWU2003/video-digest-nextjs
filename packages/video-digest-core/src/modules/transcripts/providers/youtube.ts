@@ -14,8 +14,7 @@ import type {
 import { TranscriptFetchError, TranscriptNotFoundError } from "../types.js";
 
 const youtubeYtDlpTimeoutMs = 120_000;
-const ytDlpSubtitleLanguages =
-  "zh.*,en.*,[a-z][a-z][a-z]?(-[A-Za-z0-9]+)*,-live_chat";
+const ytDlpSubtitleLanguages = "yue.*,zh.*,en.*,-live_chat";
 const execFileAsync = promisify(execFile);
 
 const youtubeJson3TranscriptSchema = z.object({
@@ -67,7 +66,7 @@ async function fetchYoutubeTranscriptWithYtDlp(
       if (ytDlpError) {
         throw new TranscriptFetchError(
           "youtube",
-          `yt-dlp 执行失败，请确认 YTDLP_PATH 可用：${ytDlpPath}`,
+          `yt-dlp 执行失败：${getYtDlpErrorDetail(ytDlpError)}`,
           ytDlpError,
         );
       }
@@ -204,13 +203,54 @@ function getYtDlpSubtitleFilePriority(
   extension: "json3" | "vtt",
 ) {
   const languagePriority = language?.startsWith("zh")
-    ? 0
-    : language?.startsWith("en")
+    ? 2
+    : language === "yue-orig"
+      ? 0
+      : language?.startsWith("yue")
+        ? 1
+        : language?.startsWith("en")
       ? 10
       : 20;
   const extensionPriority = extension === "json3" ? 0 : 1;
 
   return languagePriority + extensionPriority;
+}
+
+function getYtDlpErrorDetail(caught: unknown) {
+  if (!caught || typeof caught !== "object") {
+    return String(caught);
+  }
+
+  const error = caught as {
+    code?: unknown;
+    message?: unknown;
+    stderr?: unknown;
+  };
+  const stderr =
+    typeof error.stderr === "string" ? getLastMeaningfulLine(error.stderr) : "";
+
+  if (stderr) {
+    return stderr;
+  }
+
+  if (typeof error.message === "string" && error.message) {
+    return error.message;
+  }
+
+  if (error.code) {
+    return `退出码 ${String(error.code)}`;
+  }
+
+  return "未知错误";
+}
+
+function getLastMeaningfulLine(text: string) {
+  const lines = text
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.at(-1) ?? "";
 }
 
 function parseYtDlpSubtitleFile(

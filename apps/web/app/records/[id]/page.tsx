@@ -30,9 +30,10 @@ import {
   PanelHeader,
   StatusBadge,
 } from "../../_components/app-shell";
-import { CopyIcon, MailIcon, RefreshIcon } from "../../_components/icons";
+import { MailIcon, RefreshIcon } from "../../_components/icons";
 import { retryVideoDigestJobAction } from "./actions";
 import { RecordAutoRefresh } from "./auto-refresh";
+import { CopyButton } from "./copy-button";
 
 export const dynamic = "force-dynamic";
 
@@ -163,6 +164,14 @@ export default async function RecordDetailPage({
                     ? `${summary.model ?? "未知模型"} · ${formatDateTime(summary.createdAt)}`
                     : "等待生成"
                 }
+                action={
+                  summary ? (
+                    <CopyButton
+                      label="复制摘要"
+                      text={summary.markdown ?? summary.shortSummary}
+                    />
+                  ) : null
+                }
               />
               {summary ? (
                 <div className="grid gap-5 p-5">
@@ -175,6 +184,16 @@ export default async function RecordDetailPage({
                   <SummaryList title="关键要点" values={summary.keyPoints} />
                   <SummaryTimeline summary={summary} />
                   <SummaryList title="结论" values={summary.takeaways} />
+                  {summary.markdown ? (
+                    <section className="grid gap-2">
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        完整摘要
+                      </h3>
+                      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                        {summary.markdown}
+                      </pre>
+                    </section>
+                  ) : null}
                 </div>
               ) : (
                 <div className="p-5 text-sm text-slate-600">
@@ -213,13 +232,11 @@ export default async function RecordDetailPage({
               </div>
             )}
             <div className="border-t border-slate-200 p-5">
-              <Button
-                variant="outline"
+              <CopyButton
                 disabled={!transcript?.transcript.plainText}
-              >
-                <CopyIcon />
-                复制字幕
-              </Button>
+                label="复制字幕"
+                text={transcript?.transcript.plainText}
+              />
             </div>
           </Panel>
         </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   createSupabaseVideoRecordsRepository,
   isMissingDatabaseSchemaError,
@@ -34,10 +35,13 @@ import { ArrowRightIcon, SearchIcon } from "../_components/icons";
 export const dynamic = "force-dynamic";
 
 type RecordsSearchParams = {
+  page?: string;
   platform?: string;
   q?: string;
   status?: string;
 };
+
+const recordsPageSize = 20;
 
 const statusFilters: Array<{
   label: string;
@@ -76,29 +80,39 @@ export default async function RecordsPage({
   const selectedStatus = parseStatusFilter(resolvedSearchParams.status);
   const selectedPlatform = parsePlatformFilter(resolvedSearchParams.platform);
   const query = normalizeSearchQuery(resolvedSearchParams.q);
+  const selectedPage = parsePageNumber(resolvedSearchParams.page);
   const user = await requireUser();
   const supabase = await createClient();
   const repository = createSupabaseVideoRecordsRepository(supabase);
   let records: VideoRecordRow[] = [];
+  let totalRecords = 0;
   let databaseErrorMessage: string | null = null;
 
   try {
-    records = await repository.listForUser({
-      limit: 100,
+    const result = await repository.listPageForUser({
+      limit: recordsPageSize,
+      offset: (selectedPage - 1) * recordsPageSize,
       platform: selectedPlatform ?? undefined,
+      query: query ?? undefined,
       status:
         selectedStatus && selectedStatus !== "active"
           ? selectedStatus
           : undefined,
+      statuses: selectedStatus === "active" ? activeStatuses : undefined,
       userId: user.id,
     });
 
-    if (selectedStatus === "active") {
-      records = records.filter((record) => activeStatuses.includes(record.status));
-    }
+    records = result.records;
+    totalRecords = result.total;
 
-    if (query) {
-      records = records.filter((record) => recordMatchesQuery(record, query));
+    const totalPages = getTotalPages(totalRecords);
+
+    if (totalRecords > 0 && selectedPage > totalPages) {
+      redirect(
+        buildRecordsHref(resolvedSearchParams, {
+          page: totalPages,
+        }),
+      );
     }
   } catch (caught) {
     if (!isMissingDatabaseSchemaError(caught)) {
@@ -108,6 +122,14 @@ export default async function RecordsPage({
     databaseErrorMessage =
       "Supabase 数据表尚未创建。请先在 Supabase SQL Editor 执行 supabase/migrations/20260520213500_initial_video_digest_schema.sql。";
   }
+
+  const totalPages = getTotalPages(totalRecords);
+  const pageStart =
+    totalRecords === 0 ? 0 : (selectedPage - 1) * recordsPageSize + 1;
+  const pageEnd = Math.min(totalRecords, pageStart + records.length - 1);
+  const hasPreviousPage = selectedPage > 1;
+  const hasNextPage = selectedPage < totalPages;
+  const paginationPages = getPaginationPages(selectedPage, totalPages);
 
   return (
     <AppShell current="/records" userEmail={user.email}>
@@ -161,6 +183,7 @@ export default async function RecordsPage({
                 <Link
                   key={status.label}
                   href={buildRecordsHref(resolvedSearchParams, {
+                    page: null,
                     status: status.value,
                   })}
                   className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
@@ -182,6 +205,7 @@ export default async function RecordsPage({
                 <Link
                   key={platform.label}
                   href={buildRecordsHref(resolvedSearchParams, {
+                    page: null,
                     platform: platform.value,
                   })}
                   className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
@@ -202,7 +226,8 @@ export default async function RecordsPage({
         <PanelHeader
           title="全部记录"
           description={
-            databaseErrorMessage ?? `${records.length} 条真实记录`
+            databaseErrorMessage ??
+            `${pageStart}-${pageEnd} / ${totalRecords} 条真实记录`
           }
         />
         <div className="overflow-x-auto">
@@ -276,6 +301,62 @@ export default async function RecordsPage({
             </tbody>
           </table>
         </div>
+        {databaseErrorMessage || totalPages <= 1 ? null : (
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-500">
+              第 {selectedPage} / {totalPages} 页
+            </p>
+            <nav
+              aria-label="记录分页"
+              className="flex flex-wrap items-center gap-2"
+            >
+              {hasPreviousPage ? (
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    href={buildRecordsHref(resolvedSearchParams, {
+                      page: selectedPage - 1,
+                    })}
+                  >
+                    上一页
+                  </Link>
+                </Button>
+              ) : (
+                <Button disabled variant="outline" size="sm">
+                  上一页
+                </Button>
+              )}
+              {paginationPages.map((page) => (
+                <Link
+                  key={page}
+                  href={buildRecordsHref(resolvedSearchParams, { page })}
+                  aria-current={page === selectedPage ? "page" : undefined}
+                  className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                    page === selectedPage
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+                  }`}
+                >
+                  {page}
+                </Link>
+              ))}
+              {hasNextPage ? (
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    href={buildRecordsHref(resolvedSearchParams, {
+                      page: selectedPage + 1,
+                    })}
+                  >
+                    下一页
+                  </Link>
+                </Button>
+              ) : (
+                <Button disabled variant="outline" size="sm">
+                  下一页
+                </Button>
+              )}
+            </nav>
+          </div>
+        )}
       </Panel>
     </AppShell>
   );
@@ -298,15 +379,25 @@ function normalizeSearchQuery(value: string | undefined) {
   return query.length > 0 ? query : null;
 }
 
+function parsePageNumber(value: string | undefined) {
+  const page = Number.parseInt(value ?? "1", 10);
+  return Number.isFinite(page) && page > 0 ? page : 1;
+}
+
 function buildRecordsHref(
   currentParams: RecordsSearchParams,
   nextParams: {
+    page?: number | null;
     platform?: VideoPlatform | null;
     status?: VideoRecordStatus | "active" | null;
   },
 ) {
   const params = new URLSearchParams();
   const query = normalizeSearchQuery(currentParams.q);
+  const page =
+    nextParams.page === undefined
+      ? parsePageNumber(currentParams.page)
+      : nextParams.page;
   const status =
     nextParams.status === undefined
       ? parseStatusFilter(currentParams.status)
@@ -328,23 +419,27 @@ function buildRecordsHref(
     params.set("platform", platform);
   }
 
+  if (page && page > 1) {
+    params.set("page", String(page));
+  }
+
   const queryString = params.toString();
 
   return queryString ? `/records?${queryString}` : "/records";
 }
 
-function recordMatchesQuery(record: VideoRecordRow, query: string) {
-  const normalizedQuery = query.toLowerCase();
-  const haystack = [
-    record.title,
-    record.author,
-    record.sourceUrl,
-    record.errorCode,
-    record.errorMessage,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join("\n")
-    .toLowerCase();
+function getTotalPages(totalRecords: number) {
+  return Math.max(1, Math.ceil(totalRecords / recordsPageSize));
+}
 
-  return haystack.includes(normalizedQuery);
+function getPaginationPages(currentPage: number, totalPages: number) {
+  const firstPage = Math.max(1, currentPage - 2);
+  const lastPage = Math.min(totalPages, currentPage + 2);
+  const pages: number[] = [];
+
+  for (let page = firstPage; page <= lastPage; page += 1) {
+    pages.push(page);
+  }
+
+  return pages;
 }

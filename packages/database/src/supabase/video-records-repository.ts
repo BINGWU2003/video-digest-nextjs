@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
   CreateVideoRecordInput,
+  ListVideoRecordsForUserInput,
   UpdateVideoRecordMetadataForUserInput,
   UpdateVideoRecordStatusForUserInput,
   VideoRecordsRepository,
@@ -108,10 +109,17 @@ export function createSupabaseVideoRecordsRepository(
 
       if (input.status) {
         query = query.eq("status", input.status);
+      } else if (input.statuses?.length) {
+        query = query.in("status", [...input.statuses]);
       }
 
       if (input.platform) {
         query = query.eq("platform", input.platform);
+      }
+
+      const searchFilter = toVideoRecordSearchFilter(input.query);
+      if (searchFilter) {
+        query = query.or(searchFilter);
       }
 
       const limit = input.limit ?? 50;
@@ -125,6 +133,80 @@ export function createSupabaseVideoRecordsRepository(
       return (data ?? []).map((row) =>
         mapVideoRecordRow(row as SupabaseVideoRecordRow),
       );
+    },
+
+    async listPageForUser(input) {
+      let countQuery = client
+        .from("video_records")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", input.userId)
+        .is("deleted_at", null);
+
+      if (input.status) {
+        countQuery = countQuery.eq("status", input.status);
+      } else if (input.statuses?.length) {
+        countQuery = countQuery.in("status", [...input.statuses]);
+      }
+
+      if (input.platform) {
+        countQuery = countQuery.eq("platform", input.platform);
+      }
+
+      const searchFilter = toVideoRecordSearchFilter(input.query);
+      if (searchFilter) {
+        countQuery = countQuery.or(searchFilter);
+      }
+
+      const { count, error: countError } = await countQuery;
+
+      if (countError) {
+        throw new DatabaseQueryError("统计视频记录列表失败。", countError);
+      }
+
+      const total = count ?? 0;
+      const limit = input.limit ?? 50;
+      const offset = input.offset ?? 0;
+
+      if (total === 0 || offset >= total) {
+        return {
+          records: [],
+          total,
+        };
+      }
+
+      let query = client
+        .from("video_records")
+        .select("*")
+        .eq("user_id", input.userId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+
+      if (input.status) {
+        query = query.eq("status", input.status);
+      } else if (input.statuses?.length) {
+        query = query.in("status", [...input.statuses]);
+      }
+
+      if (input.platform) {
+        query = query.eq("platform", input.platform);
+      }
+
+      if (searchFilter) {
+        query = query.or(searchFilter);
+      }
+
+      const { data, error } = await query.range(offset, offset + limit - 1);
+
+      if (error) {
+        throw new DatabaseQueryError("分页查询视频记录列表失败。", error);
+      }
+
+      return {
+        records: (data ?? []).map((row) =>
+          mapVideoRecordRow(row as SupabaseVideoRecordRow),
+        ),
+        total,
+      };
     },
 
     async updateStatusForUser(input) {
@@ -179,6 +261,32 @@ export function createSupabaseVideoRecordsRepository(
       return mapVideoRecordRow(data as SupabaseVideoRecordRow);
     },
   };
+}
+
+const videoRecordSearchColumns = [
+  "title",
+  "author",
+  "source_url",
+  "normalized_url",
+  "error_code",
+  "error_message",
+] as const;
+
+function toVideoRecordSearchFilter(query: ListVideoRecordsForUserInput["query"]) {
+  const normalizedQuery = query
+    ?.trim()
+    .replace(/[(),]/g, " ")
+    .replace(/\s+/g, " ");
+
+  if (!normalizedQuery) {
+    return null;
+  }
+
+  const pattern = `%${normalizedQuery}%`;
+
+  return videoRecordSearchColumns
+    .map((column) => `${column}.ilike.${pattern}`)
+    .join(",");
 }
 
 function toSupabaseCreateInput(

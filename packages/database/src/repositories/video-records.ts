@@ -34,12 +34,23 @@ export type ListVideoRecordsForUserInput = {
   userId: string;
   /** 可选状态过滤。 */
   status?: VideoRecordRow["status"];
+  /** 可选多状态过滤。 */
+  statuses?: readonly VideoRecordStatus[];
   /** 可选平台过滤。 */
   platform?: VideoPlatform;
+  /** 可选关键词过滤，匹配标题、作者、链接和失败原因。 */
+  query?: string;
   /** 返回记录数，默认由具体 repository 决定。 */
   limit?: number;
   /** 跳过记录数，用于分页。 */
   offset?: number;
+};
+
+export type ListVideoRecordsForUserPageResult = {
+  /** 当前页记录。 */
+  records: VideoRecordRow[];
+  /** 当前过滤条件下的总记录数。 */
+  total: number;
 };
 
 export type UpdateVideoRecordStatusForUserInput = {
@@ -86,6 +97,10 @@ export type VideoRecordsRepository = {
   }): Promise<VideoRecordRow | null>;
   /** 按用户查询可见视频记录列表，默认按创建时间倒序。 */
   listForUser(input: ListVideoRecordsForUserInput): Promise<VideoRecordRow[]>;
+  /** 按用户分页查询可见视频记录列表，并返回当前过滤条件下的总数。 */
+  listPageForUser(
+    input: ListVideoRecordsForUserInput,
+  ): Promise<ListVideoRecordsForUserPageResult>;
   /** 在指定用户的数据边界内更新视频记录状态，并返回更新后的数据行。 */
   updateStatusForUser(
     input: UpdateVideoRecordStatusForUserInput,

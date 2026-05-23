@@ -86,6 +86,8 @@ export default async function RecordDetailPage({
 
   const title = displayRecordTitle(record);
   const activeStep = resolveActiveStep(record.status);
+  const retryable = isRetryableStatus(record.status);
+  const failureHint = getFailureHint(record.errorCode);
 
   return (
     <AppShell current="/records" userEmail={user.email}>
@@ -102,7 +104,7 @@ export default async function RecordDetailPage({
             <form action={retryVideoDigestJobAction}>
               <input name="id" type="hidden" value={record.id} />
               <Button
-                disabled={record.status !== "failed"}
+                disabled={!retryable}
                 type="submit"
                 variant="outline"
               >
@@ -138,6 +140,11 @@ export default async function RecordDetailPage({
                   {record.errorMessage ? (
                     <p className="mt-2 text-sm leading-6 text-red-700">
                       {record.errorMessage}
+                    </p>
+                  ) : null}
+                  {failureHint ? (
+                    <p className="mt-3 rounded-md border border-red-200 bg-white/70 px-3 py-2 text-sm leading-6 text-red-700">
+                      {failureHint}
                     </p>
                   ) : null}
                 </div>
@@ -405,6 +412,31 @@ function resolveActiveStep(status: VideoRecordStatus) {
   );
 
   return index === -1 ? 0 : index;
+}
+
+function isRetryableStatus(status: VideoRecordStatus) {
+  return status === "failed" || status === "cancelled";
+}
+
+function getFailureHint(errorCode: string | null) {
+  const hints: Record<string, string> = {
+    metadata_fetch_failed:
+      "建议检查视频链接是否可访问，以及本地或部署环境的网络代理配置。",
+    provider_unavailable:
+      "当前平台 provider 不可用。建议检查平台识别结果、依赖配置和 worker 环境。",
+    retry_enqueue_failed:
+      "记录已尝试恢复，但重新入队失败。建议检查 Redis/队列连接后再次重试。",
+    summary_generation_failed:
+      "建议检查 OPENAI_BASE_URL、OPENAI_API_KEY、OPENAI_SUMMARY_MODEL 等摘要模型配置。",
+    transcript_fetch_failed:
+      "建议检查 yt-dlp 是否可执行，以及本地开发代理或部署环境网络是否能访问视频平台。",
+    transcript_not_found:
+      "当前视频没有可读取字幕。可以换一个有公开字幕的视频，或后续开启音频转写后再重试。",
+    worker_processing_failed:
+      "worker 处理链路出现未分类错误。建议查看 worker 控制台日志定位具体阶段。",
+  };
+
+  return errorCode ? hints[errorCode] : null;
 }
 
 function formatOutputMode(mode: string) {

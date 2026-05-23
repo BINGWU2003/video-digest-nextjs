@@ -4,6 +4,7 @@ import {
   createSupabaseJobEventsRepository,
   createSupabaseVideoRecordsRepository,
   isMissingDatabaseSchemaError,
+  type VideoRecordStatus,
 } from "@repo/database";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -38,7 +39,7 @@ export async function retryVideoDigestJobAction(formData: FormData) {
       userId: user.id,
     });
 
-    if (!record || record.status !== "failed") {
+    if (!record || !isRetryableStatus(record.status)) {
       redirect(`/records/${recordId}`);
     }
 
@@ -46,7 +47,7 @@ export async function retryVideoDigestJobAction(formData: FormData) {
       completedAt: null,
       errorCode: null,
       errorMessage: null,
-      expectedStatus: "failed",
+      expectedStatus: record.status,
       id: record.id,
       status: "queued",
       userId: user.id,
@@ -59,6 +60,7 @@ export async function retryVideoDigestJobAction(formData: FormData) {
         message: "用户重新提交失败任务，等待后台处理。",
         metadata: {
           previousErrorCode: record.errorCode,
+          previousStatus: record.status,
           retriedAt: retryQueuedAt.toISOString(),
         },
         recordId: record.id,
@@ -86,6 +88,18 @@ export async function retryVideoDigestJobAction(formData: FormData) {
         status: "failed",
         userId: user.id,
       });
+
+      await jobEventsRepository.create({
+        message:
+          caught instanceof Error ? caught.message : "重试任务入队失败。",
+        metadata: {
+          previousErrorCode: record.errorCode,
+          previousStatus: record.status,
+        },
+        recordId: record.id,
+        status: "failed",
+        userId: user.id,
+      });
     }
   } catch (caught) {
     if (isMissingDatabaseSchemaError(caught)) {
@@ -99,4 +113,10 @@ export async function retryVideoDigestJobAction(formData: FormData) {
   revalidatePath("/records");
   revalidatePath("/dashboard");
   redirect(`/records/${recordId}`);
+}
+
+function isRetryableStatus(
+  status: VideoRecordStatus,
+): status is "cancelled" | "failed" {
+  return status === "cancelled" || status === "failed";
 }

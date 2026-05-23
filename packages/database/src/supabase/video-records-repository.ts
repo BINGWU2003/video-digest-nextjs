@@ -83,6 +83,24 @@ export function createSupabaseVideoRecordsRepository(
       return mapVideoRecordRow(data as SupabaseVideoRecordRow);
     },
 
+    async findLatestByNormalizedUrlForUser(input) {
+      const { data, error } = await client
+        .from("video_records")
+        .select("*")
+        .eq("user_id", input.userId)
+        .eq("normalized_url", input.normalizedUrl)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        throw new DatabaseQueryError("查询重复视频记录失败。", error);
+      }
+
+      return data ? mapVideoRecordRow(data as SupabaseVideoRecordRow) : null;
+    },
+
     async findByIdForUser(input) {
       const { data, error } = await client
         .from("video_records")

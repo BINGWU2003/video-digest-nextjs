@@ -60,10 +60,13 @@ const timelineSteps: Array<{
 
 export default async function RecordDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ reused?: string }>;
 }) {
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
   const user = await requireUser();
   const supabase = await createClient();
   const videoRecordsRepository = createSupabaseVideoRecordsRepository(supabase);
@@ -101,6 +104,7 @@ export default async function RecordDetailPage({
   const cancellable = isCancellableStatus(record.status);
   const retryable = isRetryableStatus(record.status);
   const failureHint = getFailureHint(record.errorCode);
+  const reusedExistingRecord = resolvedSearchParams?.reused === "1";
 
   return (
     <AppShell current="/records" userEmail={user.email}>
@@ -156,6 +160,11 @@ export default async function RecordDetailPage({
               }
             />
             <div className="grid gap-4 p-5">
+              {reusedExistingRecord ? (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-800">
+                  已找到同一视频的已有任务，没有重复创建新任务。
+                </div>
+              ) : null}
               {record.errorCode || record.errorMessage ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4">
                   <p className="text-sm font-semibold text-red-800">

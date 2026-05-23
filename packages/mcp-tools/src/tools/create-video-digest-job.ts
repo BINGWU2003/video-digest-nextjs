@@ -20,14 +20,15 @@ export const createVideoDigestJobTool: ToolDefinition<
   createHandler:
     (dependencies) =>
     async (input, context): Promise<CreateVideoDigestJobOutput> => {
-      const record = await createVideoRecord(dependencies, {
+      const result = await createVideoRecord(dependencies, {
         actor: context.actor,
         input,
       });
 
       return createVideoDigestJobOutputSchema.parse({
-        recordId: record.id,
-        status: record.status,
+        created: result.created,
+        recordId: result.record.id,
+        status: result.record.status,
       });
     },
 };

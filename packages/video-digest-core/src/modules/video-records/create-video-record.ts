@@ -2,9 +2,10 @@ import type {
   CreateVideoRecordInput,
   JobEventsRepository,
   UsageEventsRepository,
+  VideoRecordRow,
   VideoRecordsRepository,
 } from "@repo/database";
-import type { RecordCreatorType } from "@repo/database";
+import type { RecordCreatorType, VideoRecordStatus } from "@repo/database";
 import {
   type Actor,
   type CreateVideoDigestJobInput,
@@ -24,17 +25,37 @@ export type CreateVideoRecordCommand = {
   input: CreateVideoDigestJobInput;
 };
 
+export type CreateVideoRecordResult = {
+  /** 最终返回的记录；可能是新建记录，也可能是复用的已有记录。 */
+  record: VideoRecordRow;
+  /** 本次调用是否真的创建并入队了新任务。 */
+  created: boolean;
+};
+
 export async function createVideoRecord(
   dependencies: CreateVideoRecordDependencies,
   command: CreateVideoRecordCommand,
-) {
+): Promise<CreateVideoRecordResult> {
   const input = createVideoDigestJobInputSchema.parse(command.input);
   const platform = resolvePlatform(input.url, input.platform);
+  const normalizedUrl = normalizeVideoUrl(input.url);
+  const existingRecord =
+    await dependencies.videoRecordsRepository.findLatestByNormalizedUrlForUser({
+      normalizedUrl,
+      userId: command.actor.userId,
+    });
+
+  if (existingRecord && shouldReuseExistingRecord(existingRecord.status)) {
+    return {
+      created: false,
+      record: existingRecord,
+    };
+  }
 
   const recordInput: CreateVideoRecordInput = {
     userId: command.actor.userId,
     sourceUrl: input.url,
-    normalizedUrl: normalizeVideoUrl(input.url),
+    normalizedUrl,
     platform,
     outputMode: input.outputMode,
     fallbackToAudio: input.fallbackToAudio,
@@ -70,7 +91,14 @@ export async function createVideoRecord(
     userId: record.userId,
   });
 
-  return record;
+  return {
+    created: true,
+    record,
+  };
+}
+
+function shouldReuseExistingRecord(status: VideoRecordStatus) {
+  return status !== "cancelled" && status !== "failed";
 }
 
 function resolveCreatorType(actor: Actor): RecordCreatorType {

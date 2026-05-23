@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabaseAdmin = createAdminClient();
-    const record = await createVideoRecord(
+    const result = await createVideoRecord(
       {
         jobEventsRepository: createSupabaseJobEventsRepository(supabaseAdmin),
         usageEventsRepository:
@@ -124,9 +124,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        record,
+        created: result.created,
+        record: result.record,
       },
-      { status: 201 },
+      { status: result.created ? 201 : 200 },
     );
   } catch (caught) {
     if (isMissingDatabaseSchemaError(caught)) {

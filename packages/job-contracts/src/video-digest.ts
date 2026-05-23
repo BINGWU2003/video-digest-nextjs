@@ -22,8 +22,20 @@ export const createVideoDigestJobInputSchema = z.object({
 });
 
 export const createVideoDigestJobOutputSchema = z.object({
+  created: z.boolean().default(true),
   recordId: z.string().uuid(),
-  status: z.literal("queued"),
+  status: z.enum([
+    "queued",
+    "fetching_metadata",
+    "extracting_transcript",
+    "extracting_audio",
+    "transcribing_audio",
+    "summarizing",
+    "delivering",
+    "completed",
+    "failed",
+    "cancelled",
+  ]),
 });
 
 export type Actor = z.infer<typeof actorSchema>;

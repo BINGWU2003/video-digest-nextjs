@@ -35,10 +35,11 @@ export async function createVideoDigestJobAction(formData: FormData) {
   }
 
   let recordId: string;
+  let reusedExistingRecord = false;
 
   try {
     const supabase = createAdminClient();
-    const record = await createVideoRecord(
+    const result = await createVideoRecord(
       {
         jobEventsRepository: createSupabaseJobEventsRepository(supabase),
         usageEventsRepository: createSupabaseUsageEventsRepository(supabase),
@@ -56,7 +57,8 @@ export async function createVideoDigestJobAction(formData: FormData) {
       },
     );
 
-    recordId = record.id;
+    recordId = result.record.id;
+    reusedExistingRecord = !result.created;
   } catch (caught) {
     if (isMissingDatabaseSchemaError(caught)) {
       redirectWithError(
@@ -69,7 +71,9 @@ export async function createVideoDigestJobAction(formData: FormData) {
     );
   }
 
-  redirect(`/records/${recordId}`);
+  redirect(
+    reusedExistingRecord ? `/records/${recordId}?reused=1` : `/records/${recordId}`,
+  );
 }
 
 function redirectWithError(message: string): never {

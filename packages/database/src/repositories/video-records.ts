@@ -88,6 +88,13 @@ export type UpdateVideoRecordMetadataForUserInput = {
 export type VideoRecordsRepository = {
   /** 创建一条排队中的视频记录，并返回已持久化的数据行。 */
   create(input: CreateVideoRecordInput): Promise<VideoRecordRow>;
+  /** 按用户和归一化链接查找最新可见记录，用于防重复提交。 */
+  findLatestByNormalizedUrlForUser(input: {
+    /** 归一化后的视频链接。 */
+    normalizedUrl: string;
+    /** 记录所属用户 ID，来自 Supabase Auth。 */
+    userId: string;
+  }): Promise<VideoRecordRow | null>;
   /** 在指定用户的数据边界内按 ID 查找一条可见记录。 */
   findByIdForUser(input: {
     /** 视频记录 ID。 */

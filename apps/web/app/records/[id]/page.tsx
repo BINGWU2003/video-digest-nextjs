@@ -1,7 +1,9 @@
 import {
+  createSupabaseJobEventsRepository,
   createSupabaseSummariesRepository,
   createSupabaseTranscriptsRepository,
   createSupabaseVideoRecordsRepository,
+  type JobEventRow,
   type SummaryRow,
   type TranscriptSegmentRow,
   type VideoRecordStatus,
@@ -62,6 +64,7 @@ export default async function RecordDetailPage({
   const user = await requireUser();
   const supabase = await createClient();
   const videoRecordsRepository = createSupabaseVideoRecordsRepository(supabase);
+  const jobEventsRepository = createSupabaseJobEventsRepository(supabase);
   const summariesRepository = createSupabaseSummariesRepository(supabase);
   const transcriptsRepository = createSupabaseTranscriptsRepository(supabase);
 
@@ -74,15 +77,21 @@ export default async function RecordDetailPage({
     notFound();
   }
 
-  const transcript = await transcriptsRepository.findLatestForRecord({
-    recordId: record.id,
-    segmentLimit: 200,
-    userId: user.id,
-  });
-  const summary = await summariesRepository.findLatestForRecord({
-    recordId: record.id,
-    userId: user.id,
-  });
+  const [events, transcript, summary] = await Promise.all([
+    jobEventsRepository.listForRecord({
+      recordId: record.id,
+      userId: user.id,
+    }),
+    transcriptsRepository.findLatestForRecord({
+      recordId: record.id,
+      segmentLimit: 200,
+      userId: user.id,
+    }),
+    summariesRepository.findLatestForRecord({
+      recordId: record.id,
+      userId: user.id,
+    }),
+  ]);
 
   const title = displayRecordTitle(record);
   const activeStep = resolveActiveStep(record.status);
@@ -316,9 +325,69 @@ export default async function RecordDetailPage({
               })}
             </ol>
           </Panel>
+
+          <Panel>
+            <PanelHeader
+              title="事件日志"
+              description={`${events.length} 条任务事件`}
+            />
+            {events.length > 0 ? (
+              <ol className="divide-y divide-slate-200">
+                {events.map((event) => (
+                  <JobEventItem key={event.id} event={event} />
+                ))}
+              </ol>
+            ) : (
+              <div className="p-5 text-sm text-slate-600">
+                暂无任务事件。worker 写入状态事件后会显示在这里。
+              </div>
+            )}
+          </Panel>
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function JobEventItem({ event }: { event: JobEventRow }) {
+  const metadataEntries = getDisplayMetadataEntries(event.metadata);
+
+  return (
+    <li className="grid gap-3 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <StatusBadge tone={statusTone(event.status)}>
+            {statusLabels[event.status]}
+          </StatusBadge>
+          {event.message ? (
+            <p className="text-sm leading-6 text-slate-700">
+              {event.message}
+            </p>
+          ) : null}
+        </div>
+        <time
+          dateTime={event.createdAt.toISOString()}
+          className="shrink-0 text-right text-xs text-slate-500"
+        >
+          {formatDateTime(event.createdAt)}
+        </time>
+      </div>
+      {metadataEntries.length > 0 ? (
+        <dl className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs">
+          {metadataEntries.map(([key, value]) => (
+            <div
+              key={key}
+              className="grid gap-1 sm:grid-cols-[96px_1fr] sm:items-start"
+            >
+              <dt className="font-medium text-slate-500">{key}</dt>
+              <dd className="break-words font-mono text-slate-700">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </li>
   );
 }
 
@@ -400,6 +469,31 @@ function isSummaryTimelineItem(value: unknown): value is {
     typeof item.title === "string" &&
     (typeof item.time === "string" || item.time === null || item.time === undefined)
   );
+}
+
+function getDisplayMetadataEntries(metadata: Record<string, unknown>) {
+  return Object.entries(metadata)
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .map(([key, value]) => [key, formatMetadataValue(value)] as const);
+}
+
+function formatMetadataValue(value: unknown) {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value);
+  }
+
+  try {
+    const serialized = JSON.stringify(value);
+    return serialized.length > 120
+      ? `${serialized.slice(0, 117)}...`
+      : serialized;
+  } catch {
+    return "无法显示";
+  }
 }
 
 function resolveActiveStep(status: VideoRecordStatus) {

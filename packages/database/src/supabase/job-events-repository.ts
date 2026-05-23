@@ -46,6 +46,25 @@ export function createSupabaseJobEventsRepository(
 
       return mapJobEventRow(data as SupabaseJobEventRow);
     },
+
+    async listForRecord(input) {
+      const limit = input.limit ?? 100;
+      const { data, error } = await client
+        .from("job_events")
+        .select("*")
+        .eq("record_id", input.recordId)
+        .eq("user_id", input.userId)
+        .order("created_at", { ascending: true })
+        .range(0, limit - 1);
+
+      if (error) {
+        throw new DatabaseQueryError("查询任务事件列表失败。", error);
+      }
+
+      return (data ?? []).map((row) =>
+        mapJobEventRow(row as SupabaseJobEventRow),
+      );
+    },
   };
 }
 

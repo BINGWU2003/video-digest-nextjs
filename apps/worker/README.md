@@ -101,6 +101,7 @@ src/index.ts
 ## 常用命令
 
 ```bash
+pnpm check:local
 pnpm --filter worker dev
 pnpm --filter worker lint
 pnpm --filter worker check-types

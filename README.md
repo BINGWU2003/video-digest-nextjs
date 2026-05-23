@@ -140,6 +140,7 @@ http://localhost:3000/auth/callback
 
 ```bash
 pnpm dev
+pnpm check:local
 pnpm build
 pnpm lint
 pnpm check-types

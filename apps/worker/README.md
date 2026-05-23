@@ -24,7 +24,7 @@ REDIS_URL=redis://localhost:6379
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx
 YTDLP_PATH=yt-dlp
-OPENAI_API_KEY=sk_xxx
+DEEPSEEK_API_KEY=sk_xxx
 ```
 
 开发模式会自动读取 `apps/worker/.env.local`。也可以直接通过系统环境变量注入同名配置。
@@ -33,11 +33,21 @@ OPENAI_API_KEY=sk_xxx
 
 `YTDLP_PATH` 默认可以写 `yt-dlp`，表示使用系统 PATH 中的 yt-dlp；Docker/Railway 部署时可以写成 `/usr/local/bin/yt-dlp`。
 
-摘要任务使用 OpenAI-compatible Chat Completions API。`OPENAI_API_KEY` 只在 `summary` 或 `summary_and_email` 输出模式进入摘要阶段时需要。可选配置：
+摘要任务使用 OpenAI-compatible Chat Completions API。`DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY` 只在 `summary` 或 `summary_and_email` 输出模式进入摘要阶段时需要。
+
+DeepSeek 推荐配置：
+
+```txt
+DEEPSEEK_API_KEY=sk_xxx
+DEEPSEEK_SUMMARY_MODEL=deepseek-v4-flash
+```
+
+也可以使用通用 OpenAI-compatible 配置：
 
 ```txt
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_SUMMARY_MODEL=gpt-4o-mini
+OPENAI_SUMMARY_MAX_TOKENS=4000
 ```
 
 本地开发如需让 worker 和 yt-dlp 走代理，可以额外配置：

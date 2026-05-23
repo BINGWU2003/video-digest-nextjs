@@ -9,8 +9,11 @@ import { SummaryGenerationError } from "../types.js";
 
 const summaryPromptVersion = "summary-v1";
 const defaultSummaryModel = "gpt-4o-mini";
+const defaultDeepSeekSummaryModel = "deepseek-v4-flash";
 const defaultBaseUrl = "https://api.openai.com/v1";
+const defaultDeepSeekBaseUrl = "https://api.deepseek.com";
 const maxTranscriptCharacters = 60_000;
+const defaultMaxCompletionTokens = 4_000;
 const summaryResponseSchema = z.object({
   keyPoints: z.array(z.string().min(1)).default([]),
   markdown: z.string().min(1).nullable().optional(),
@@ -50,17 +53,17 @@ export function createOpenAICompatibleSummaryProvider(): SummaryProvider {
 async function generateSummaryWithOpenAICompatibleApi(
   input: GenerateSummaryInput,
 ): Promise<GeneratedSummary> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY ?? process.env.DEEPSEEK_API_KEY;
 
   if (!apiKey) {
-    throw new SummaryGenerationError("缺少环境变量 OPENAI_API_KEY。");
+    throw new SummaryGenerationError(
+      "缺少环境变量 OPENAI_API_KEY 或 DEEPSEEK_API_KEY。",
+    );
   }
 
-  const model = process.env.OPENAI_SUMMARY_MODEL ?? defaultSummaryModel;
-  const endpoint = new URL(
-    "chat/completions",
-    normalizeBaseUrl(process.env.OPENAI_BASE_URL ?? defaultBaseUrl),
-  );
+  const baseUrl = resolveBaseUrl();
+  const model = resolveSummaryModel(baseUrl);
+  const endpoint = new URL("chat/completions", normalizeBaseUrl(baseUrl));
 
   let response: Response;
 
@@ -78,6 +81,7 @@ async function generateSummaryWithOpenAICompatibleApi(
             role: "user",
           },
         ],
+        max_tokens: resolveMaxCompletionTokens(),
         model,
         response_format: { type: "json_object" },
         temperature: 0.2,
@@ -136,6 +140,48 @@ async function generateSummaryWithOpenAICompatibleApi(
     })),
     title: parsedContent.title ?? input.videoTitle,
   };
+}
+
+function resolveBaseUrl() {
+  if (process.env.OPENAI_BASE_URL) {
+    return process.env.OPENAI_BASE_URL;
+  }
+
+  if (process.env.DEEPSEEK_API_KEY) {
+    return defaultDeepSeekBaseUrl;
+  }
+
+  return defaultBaseUrl;
+}
+
+function resolveSummaryModel(baseUrl: string) {
+  if (process.env.OPENAI_SUMMARY_MODEL) {
+    return process.env.OPENAI_SUMMARY_MODEL;
+  }
+
+  if (process.env.DEEPSEEK_SUMMARY_MODEL) {
+    return process.env.DEEPSEEK_SUMMARY_MODEL;
+  }
+
+  if (baseUrl.includes("deepseek.com")) {
+    return defaultDeepSeekSummaryModel;
+  }
+
+  return defaultSummaryModel;
+}
+
+function resolveMaxCompletionTokens() {
+  const rawValue = process.env.OPENAI_SUMMARY_MAX_TOKENS;
+
+  if (!rawValue) {
+    return defaultMaxCompletionTokens;
+  }
+
+  const parsedValue = Number(rawValue);
+
+  return Number.isSafeInteger(parsedValue) && parsedValue > 0
+    ? parsedValue
+    : defaultMaxCompletionTokens;
 }
 
 function buildSummaryPrompt(input: GenerateSummaryInput) {

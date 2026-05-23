@@ -58,7 +58,7 @@ src/modules/summaries/
 
 当前 YouTube 字幕 provider 只通过 `yt-dlp` 下载 `json3` 或 `vtt` 字幕文件，再由 Node 解析为分段字幕，不需要 API key。`persistTranscript()` 已经能创建 `transcripts` 主记录和 `transcript_segments` 分段记录。Bilibili 字幕 provider 仍是占位实现，会抛出 `TranscriptProviderUnavailableError`。
 
-当前摘要 provider 使用 OpenAI-compatible Chat Completions API，要求模型返回结构化 JSON。`persistSummary()` 已经能把摘要标题、短概览、关键要点、时间线、结论和 Markdown 写入 `summaries`。
+当前摘要 provider 使用 OpenAI-compatible Chat Completions API，要求模型返回结构化 JSON。默认支持 `DEEPSEEK_API_KEY` / `DEEPSEEK_SUMMARY_MODEL`，也支持通用 `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_SUMMARY_MODEL`。`persistSummary()` 已经能把摘要标题、短概览、关键要点、时间线、结论和 Markdown 写入 `summaries`。
 
 ## 调用方向
 

@@ -183,6 +183,10 @@ async function processVideoDigestJob(
       },
     );
 
+    if (await isVideoDigestJobCancelled(dependencies, payload)) {
+      return;
+    }
+
     await persistVideoMetadata(dependencies, {
       metadata,
       recordId: record.id,
@@ -218,11 +222,19 @@ async function processVideoDigestJob(
       },
     );
 
+    if (await isVideoDigestJobCancelled(dependencies, payload)) {
+      return;
+    }
+
     const transcriptResult = await persistTranscript(dependencies, {
       recordId: record.id,
       transcript,
       userId: record.userId,
     });
+
+    if (await isVideoDigestJobCancelled(dependencies, payload)) {
+      return;
+    }
 
     if (record.outputMode === "transcript") {
       await dependencies.videoRecordsRepository.updateStatusForUser({
@@ -289,11 +301,21 @@ async function processVideoDigestJob(
         videoTitle: record.title,
       },
     );
+
+    if (await isVideoDigestJobCancelled(dependencies, payload)) {
+      return;
+    }
+
     const summaryResult = await persistSummary(dependencies, {
       recordId: record.id,
       summary,
       userId: record.userId,
     });
+
+    if (await isVideoDigestJobCancelled(dependencies, payload)) {
+      return;
+    }
+
     const finalStatus = record.sendEmail ? "delivering" : "completed";
 
     await dependencies.videoRecordsRepository.updateStatusForUser({
@@ -321,8 +343,24 @@ async function processVideoDigestJob(
       },
     });
   } catch (caught) {
+    if (await isVideoDigestJobCancelled(dependencies, payload)) {
+      return;
+    }
+
     await markVideoDigestJobFailed(dependencies, payload, context, caught);
   }
+}
+
+async function isVideoDigestJobCancelled(
+  dependencies: Pick<ProcessVideoDigestJobDependencies, "videoRecordsRepository">,
+  payload: VideoDigestQueuePayload,
+) {
+  const record = await dependencies.videoRecordsRepository.findByIdForUser({
+    id: payload.recordId,
+    userId: payload.userId,
+  });
+
+  return record?.status === "cancelled";
 }
 
 async function markVideoDigestJobFailed(

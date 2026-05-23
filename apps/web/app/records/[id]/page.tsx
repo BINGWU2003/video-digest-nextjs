@@ -32,8 +32,11 @@ import {
   PanelHeader,
   StatusBadge,
 } from "../../_components/app-shell";
-import { MailIcon, RefreshIcon } from "../../_components/icons";
-import { retryVideoDigestJobAction } from "./actions";
+import { MailIcon, RefreshIcon, TrashIcon } from "../../_components/icons";
+import {
+  cancelVideoDigestJobAction,
+  retryVideoDigestJobAction,
+} from "./actions";
 import { RecordAutoRefresh } from "./auto-refresh";
 import { CopyButton } from "./copy-button";
 
@@ -95,6 +98,7 @@ export default async function RecordDetailPage({
 
   const title = displayRecordTitle(record);
   const activeStep = resolveActiveStep(record.status);
+  const cancellable = isCancellableStatus(record.status);
   const retryable = isRetryableStatus(record.status);
   const failureHint = getFailureHint(record.errorCode);
 
@@ -119,6 +123,17 @@ export default async function RecordDetailPage({
               >
                 <RefreshIcon />
                 重试
+              </Button>
+            </form>
+            <form action={cancelVideoDigestJobAction}>
+              <input name="id" type="hidden" value={record.id} />
+              <Button
+                disabled={!cancellable}
+                type="submit"
+                variant="destructive"
+              >
+                <TrashIcon />
+                取消任务
               </Button>
             </form>
             <Button disabled>
@@ -510,6 +525,18 @@ function resolveActiveStep(status: VideoRecordStatus) {
 
 function isRetryableStatus(status: VideoRecordStatus) {
   return status === "failed" || status === "cancelled";
+}
+
+function isCancellableStatus(status: VideoRecordStatus) {
+  return (
+    status === "queued" ||
+    status === "fetching_metadata" ||
+    status === "extracting_transcript" ||
+    status === "extracting_audio" ||
+    status === "transcribing_audio" ||
+    status === "summarizing" ||
+    status === "delivering"
+  );
 }
 
 function getFailureHint(errorCode: string | null) {

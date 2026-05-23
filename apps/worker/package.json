@@ -16,6 +16,7 @@
     "@repo/video-digest-core": "workspace:*",
     "@supabase/supabase-js": "catalog:",
     "dotenv": "catalog:",
+    "undici": "catalog:",
     "ws": "catalog:"
   },
   "devDependencies": {

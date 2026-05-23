@@ -4,6 +4,7 @@ import {
   createSupabaseJobEventsRepository,
   createSupabaseUsageEventsRepository,
   createSupabaseVideoRecordsRepository,
+  isMissingDatabaseSchemaError,
 } from "@repo/database";
 import { createVideoDigestJobInputSchema } from "@repo/job-contracts";
 import { createVideoRecord } from "@repo/video-digest-core";
@@ -11,7 +12,7 @@ import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
 import { getVideoDigestQueue } from "@/lib/queue/video-digest-queue";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function createVideoDigestJobAction(formData: FormData) {
   const user = await requireUser();
@@ -32,7 +33,7 @@ export async function createVideoDigestJobAction(formData: FormData) {
   let recordId: string;
 
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const record = await createVideoRecord(
       {
         jobEventsRepository: createSupabaseJobEventsRepository(supabase),
@@ -53,6 +54,12 @@ export async function createVideoDigestJobAction(formData: FormData) {
 
     recordId = record.id;
   } catch (caught) {
+    if (isMissingDatabaseSchemaError(caught)) {
+      redirectWithError(
+        "Supabase 数据表尚未创建。请先在 Supabase SQL Editor 执行 supabase/migrations/20260520213500_initial_video_digest_schema.sql。",
+      );
+    }
+
     redirectWithError(
       caught instanceof Error ? caught.message : "创建视频任务失败。",
     );

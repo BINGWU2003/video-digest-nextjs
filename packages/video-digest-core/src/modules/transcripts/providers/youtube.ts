@@ -1,3 +1,8 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import { z } from "zod";
 
 import type {
@@ -8,34 +13,10 @@ import type {
 } from "../types.js";
 import { TranscriptFetchError, TranscriptNotFoundError } from "../types.js";
 
-const youtubeTranscriptTimeoutMs = 10_000;
-const youtubeVideoIdPattern = /^[a-zA-Z0-9_-]{11}$/;
-
-const youtubePlayerResponseSchema = z.object({
-  captions: z
-    .object({
-      playerCaptionsTracklistRenderer: z
-        .object({
-          captionTracks: z
-            .array(
-              z.object({
-                baseUrl: z.string().min(1),
-                kind: z.string().nullable().optional(),
-                languageCode: z.string().min(1).nullable().optional(),
-                name: z
-                  .object({
-                    runs: z.array(z.object({ text: z.string() })).optional(),
-                    simpleText: z.string().optional(),
-                  })
-                  .optional(),
-              }),
-            )
-            .optional(),
-        })
-        .optional(),
-    })
-    .optional(),
-});
+const youtubeYtDlpTimeoutMs = 120_000;
+const ytDlpSubtitleLanguages =
+  "zh.*,en.*,[a-z][a-z][a-z]?(-[A-Za-z0-9]+)*,-live_chat";
+const execFileAsync = promisify(execFile);
 
 const youtubeJson3TranscriptSchema = z.object({
   events: z
@@ -49,13 +30,6 @@ const youtubeJson3TranscriptSchema = z.object({
     .optional(),
 });
 
-type YoutubeCaptionTrack = NonNullable<
-  NonNullable<
-    NonNullable<
-      z.infer<typeof youtubePlayerResponseSchema>["captions"]
-    >["playerCaptionsTracklistRenderer"]
-  >["captionTracks"]
->[number];
 type YoutubeJson3Event = NonNullable<
   z.infer<typeof youtubeJson3TranscriptSchema>["events"]
 >[number];
@@ -64,281 +38,201 @@ export function createYoutubeTranscriptProvider(): TranscriptProvider {
   return {
     platform: "youtube",
     async fetchTranscript(input) {
-      return fetchYoutubeTranscript(input);
+      return fetchYoutubeTranscriptWithYtDlp(input);
     },
   };
 }
 
-async function fetchYoutubeTranscript(
+async function fetchYoutubeTranscriptWithYtDlp(
   input: FetchTranscriptInput,
 ): Promise<TranscriptResult> {
-  const videoId = parseYoutubeVideoId(input.sourceUrl);
-  const playerResponse = await fetchYoutubePlayerResponse(videoId);
-  const captionTracks =
-    playerResponse.captions?.playerCaptionsTracklistRenderer?.captionTracks ??
-    [];
-  const captionTrack = selectCaptionTrack(captionTracks);
-
-  if (!captionTrack) {
-    throw new TranscriptNotFoundError(
-      "youtube",
-      input.fallbackToAudio
-        ? "视频没有公开字幕，后续可接入音频转写回退。"
-        : "视频没有公开字幕，且当前任务未允许音频转写回退。",
-    );
-  }
-
-  const segments = await fetchYoutubeCaptionSegments(captionTrack);
-
-  if (segments.length === 0) {
-    throw new TranscriptNotFoundError("youtube", "字幕轨道为空。");
-  }
-
-  return {
-    language: captionTrack.languageCode ?? null,
-    plainText: segments.map((segment) => segment.text).join("\n"),
-    segments,
-    source: captionTrack.kind === "asr" ? "auto_subtitle" : "manual_subtitle",
-  };
-}
-
-function parseYoutubeVideoId(sourceUrl: string) {
-  let parsedUrl: URL;
+  const ytDlpPath = process.env.YTDLP_PATH ?? "yt-dlp";
+  const tempDirectory = await mkdtemp(join(tmpdir(), "video-digest-ytdlp-"));
+  let ytDlpError: unknown = null;
 
   try {
-    parsedUrl = new URL(sourceUrl);
-  } catch (caught) {
-    throw new TranscriptFetchError("youtube", "视频链接不是有效 URL。", caught);
-  }
-
-  const hostname = parsedUrl.hostname.toLowerCase();
-  const videoId =
-    hostname === "youtu.be"
-      ? parsedUrl.pathname.split("/").filter(Boolean)[0]
-      : resolveYoutubeVideoIdFromPath(parsedUrl);
-
-  if (!videoId || !youtubeVideoIdPattern.test(videoId)) {
-    throw new TranscriptFetchError("youtube", "无法从链接中识别视频 ID。");
-  }
-
-  return videoId;
-}
-
-function resolveYoutubeVideoIdFromPath(parsedUrl: URL) {
-  const directVideoId = parsedUrl.searchParams.get("v");
-
-  if (directVideoId) {
-    return directVideoId;
-  }
-
-  const [firstSegment, secondSegment] = parsedUrl.pathname
-    .split("/")
-    .filter(Boolean);
-
-  if (
-    firstSegment === "embed" ||
-    firstSegment === "shorts" ||
-    firstSegment === "live"
-  ) {
-    return secondSegment;
-  }
-
-  return null;
-}
-
-async function fetchYoutubePlayerResponse(videoId: string) {
-  const watchUrl = new URL("https://www.youtube.com/watch");
-  watchUrl.searchParams.set("v", videoId);
-  watchUrl.searchParams.set("hl", "en");
-  watchUrl.searchParams.set("persist_hl", "1");
-
-  let response: Response;
-
-  try {
-    response = await fetch(watchUrl, {
-      headers: {
-        accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "accept-language": "en-US,en;q=0.9",
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-          "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-      },
-      signal: AbortSignal.timeout(youtubeTranscriptTimeoutMs),
-    });
-  } catch (caught) {
-    throw new TranscriptFetchError(
-      "youtube",
-      "视频页面网络请求失败。",
-      caught,
-    );
-  }
-
-  if (!response.ok) {
-    throw new TranscriptFetchError(
-      "youtube",
-      `视频页面请求失败，HTTP 状态码 ${response.status}。`,
-    );
-  }
-
-  const html = await response.text();
-  const rawPlayerResponse = parseInitialPlayerResponse(html);
-  const parsedPlayerResponse =
-    youtubePlayerResponseSchema.safeParse(rawPlayerResponse);
-
-  if (!parsedPlayerResponse.success) {
-    throw new TranscriptFetchError(
-      "youtube",
-      "视频页面内的播放器数据结构无效。",
-      parsedPlayerResponse.error,
-    );
-  }
-
-  return parsedPlayerResponse.data;
-}
-
-function parseInitialPlayerResponse(html: string) {
-  const markerCandidates = [
-    "ytInitialPlayerResponse =",
-    "var ytInitialPlayerResponse =",
-  ];
-
-  for (const marker of markerCandidates) {
-    const markerIndex = html.indexOf(marker);
-
-    if (markerIndex === -1) {
-      continue;
-    }
-
-    const jsonStartIndex = html.indexOf("{", markerIndex + marker.length);
-
-    if (jsonStartIndex === -1) {
-      continue;
-    }
-
-    const jsonText = extractJsonObject(html, jsonStartIndex);
-
     try {
-      return JSON.parse(jsonText) as unknown;
+      await runYtDlpSubtitleDownload({
+        outputTemplate: join(tempDirectory, "%(id)s.%(ext)s"),
+        sourceUrl: input.sourceUrl,
+        ytDlpPath,
+      });
     } catch (caught) {
-      throw new TranscriptFetchError(
+      ytDlpError = caught;
+    }
+
+    const subtitleFile = await findBestYtDlpSubtitleFile(tempDirectory);
+
+    if (!subtitleFile) {
+      if (ytDlpError) {
+        throw new TranscriptFetchError(
+          "youtube",
+          `yt-dlp 执行失败，请确认 YTDLP_PATH 可用：${ytDlpPath}`,
+          ytDlpError,
+        );
+      }
+
+      throw new TranscriptNotFoundError(
         "youtube",
-        "播放器数据不是有效 JSON。",
-        caught,
+        "yt-dlp 未下载到可用字幕文件。",
       );
     }
+
+    const fileContent = await readFile(subtitleFile.path, "utf8");
+    const segments = parseYtDlpSubtitleFile(subtitleFile, fileContent);
+
+    if (segments.length === 0) {
+      throw new TranscriptNotFoundError(
+        "youtube",
+        "yt-dlp 下载的字幕文件为空。",
+      );
+    }
+
+    return {
+      language: subtitleFile.language,
+      plainText: segments.map((segment) => segment.text).join("\n"),
+      segments,
+      source: "manual_subtitle",
+    };
+  } catch (caught) {
+    if (
+      caught instanceof TranscriptFetchError ||
+      caught instanceof TranscriptNotFoundError
+    ) {
+      throw caught;
+    }
+
+    throw new TranscriptFetchError("youtube", "yt-dlp 字幕读取失败。", caught);
+  } finally {
+    await rm(tempDirectory, {
+      force: true,
+      recursive: true,
+    });
+  }
+}
+
+type RunYtDlpSubtitleDownloadInput = {
+  outputTemplate: string;
+  sourceUrl: string;
+  ytDlpPath: string;
+};
+
+async function runYtDlpSubtitleDownload(input: RunYtDlpSubtitleDownloadInput) {
+  const args = [
+    "--skip-download",
+    "--no-playlist",
+    "--write-subs",
+    "--write-auto-subs",
+    "--sub-langs",
+    ytDlpSubtitleLanguages,
+    "--sub-format",
+    "json3/vtt/best",
+    "--output",
+    input.outputTemplate,
+  ];
+  const proxyUrl = process.env.LOCAL_PROXY_URL;
+
+  if (proxyUrl) {
+    args.push("--proxy", proxyUrl);
   }
 
-  throw new TranscriptFetchError("youtube", "视频页面缺少播放器数据。");
-}
+  args.push(input.sourceUrl);
 
-function extractJsonObject(text: string, startIndex: number) {
-  let depth = 0;
-  let isEscaped = false;
-  let isInsideString = false;
-
-  for (let index = startIndex; index < text.length; index += 1) {
-    const char = text[index];
-
-    if (isInsideString) {
-      if (isEscaped) {
-        isEscaped = false;
-      } else if (char === "\\") {
-        isEscaped = true;
-      } else if (char === '"') {
-        isInsideString = false;
-      }
-
-      continue;
-    }
-
-    if (char === '"') {
-      isInsideString = true;
-      continue;
-    }
-
-    if (char === "{") {
-      depth += 1;
-      continue;
-    }
-
-    if (char === "}") {
-      depth -= 1;
-
-      if (depth === 0) {
-        return text.slice(startIndex, index + 1);
-      }
-    }
-  }
-
-  throw new TranscriptFetchError("youtube", "播放器数据 JSON 不完整。");
-}
-
-function selectCaptionTrack(captionTracks: YoutubeCaptionTrack[]) {
-  return (
-    findTrack(captionTracks, { isAutoGenerated: false, languagePrefix: "zh" }) ??
-    findTrack(captionTracks, { isAutoGenerated: false, languagePrefix: "en" }) ??
-    findTrack(captionTracks, { isAutoGenerated: false }) ??
-    findTrack(captionTracks, { isAutoGenerated: true, languagePrefix: "zh" }) ??
-    findTrack(captionTracks, { isAutoGenerated: true, languagePrefix: "en" }) ??
-    findTrack(captionTracks, { isAutoGenerated: true }) ??
-    captionTracks[0] ??
-    null
-  );
-}
-
-function findTrack(
-  captionTracks: YoutubeCaptionTrack[],
-  options: {
-    isAutoGenerated: boolean;
-    languagePrefix?: string;
-  },
-) {
-  return captionTracks.find((track) => {
-    if ((track.kind === "asr") !== options.isAutoGenerated) {
-      return false;
-    }
-
-    if (!options.languagePrefix) {
-      return true;
-    }
-
-    return track.languageCode?.startsWith(options.languagePrefix) ?? false;
+  await execFileAsync(input.ytDlpPath, args, {
+    env: createYtDlpEnvironment(proxyUrl),
+    maxBuffer: 1024 * 1024 * 10,
+    timeout: youtubeYtDlpTimeoutMs,
+    windowsHide: true,
   });
 }
 
-async function fetchYoutubeCaptionSegments(captionTrack: YoutubeCaptionTrack) {
-  const captionUrl = new URL(captionTrack.baseUrl);
-  captionUrl.searchParams.set("fmt", "json3");
-
-  let response: Response;
-
-  try {
-    response = await fetch(captionUrl, {
-      headers: {
-        accept: "application/json",
-      },
-      signal: AbortSignal.timeout(youtubeTranscriptTimeoutMs),
-    });
-  } catch (caught) {
-    throw new TranscriptFetchError("youtube", "字幕轨道请求失败。", caught);
+function createYtDlpEnvironment(proxyUrl: string | undefined) {
+  if (!proxyUrl) {
+    return process.env;
   }
 
-  if (!response.ok) {
-    throw new TranscriptFetchError(
-      "youtube",
-      `字幕轨道请求失败，HTTP 状态码 ${response.status}。`,
-    );
+  return {
+    ...process.env,
+    ALL_PROXY: process.env.ALL_PROXY ?? proxyUrl,
+    HTTP_PROXY: process.env.HTTP_PROXY ?? proxyUrl,
+    HTTPS_PROXY: process.env.HTTPS_PROXY ?? proxyUrl,
+  };
+}
+
+type YtDlpSubtitleFile = {
+  extension: "json3" | "vtt";
+  language: string | null;
+  path: string;
+  priority: number;
+};
+
+async function findBestYtDlpSubtitleFile(
+  directory: string,
+): Promise<YtDlpSubtitleFile | null> {
+  const fileNames = await readdir(directory);
+  const subtitleFiles = fileNames
+    .map((fileName) => toYtDlpSubtitleFile(directory, fileName))
+    .filter((file): file is YtDlpSubtitleFile => file !== null)
+    .sort((left, right) => left.priority - right.priority);
+
+  return subtitleFiles[0] ?? null;
+}
+
+function toYtDlpSubtitleFile(
+  directory: string,
+  fileName: string,
+): YtDlpSubtitleFile | null {
+  const match = /\.([^.]+)\.(json3|vtt)$/u.exec(fileName);
+
+  if (!match) {
+    return null;
   }
 
+  const language = match[1] ?? null;
+  const extension = match[2] as "json3" | "vtt";
+
+  return {
+    extension,
+    language,
+    path: join(directory, fileName),
+    priority: getYtDlpSubtitleFilePriority(language, extension),
+  };
+}
+
+function getYtDlpSubtitleFilePriority(
+  language: string | null,
+  extension: "json3" | "vtt",
+) {
+  const languagePriority = language?.startsWith("zh")
+    ? 0
+    : language?.startsWith("en")
+      ? 10
+      : 20;
+  const extensionPriority = extension === "json3" ? 0 : 1;
+
+  return languagePriority + extensionPriority;
+}
+
+function parseYtDlpSubtitleFile(
+  file: YtDlpSubtitleFile,
+  fileContent: string,
+) {
+  if (file.extension === "json3") {
+    return parseJson3Transcript(fileContent);
+  }
+
+  return parseVttTranscript(fileContent);
+}
+
+function parseJson3Transcript(fileContent: string) {
   let responseBody: unknown;
 
   try {
-    responseBody = await response.json();
+    responseBody = JSON.parse(fileContent);
   } catch (caught) {
     throw new TranscriptFetchError(
       "youtube",
-      "字幕轨道响应不是有效 JSON。",
+      "yt-dlp 下载的 json3 字幕不是有效 JSON。",
       caught,
     );
   }
@@ -349,7 +243,7 @@ async function fetchYoutubeCaptionSegments(captionTrack: YoutubeCaptionTrack) {
   if (!parsedTranscript.success) {
     throw new TranscriptFetchError(
       "youtube",
-      "字幕轨道响应结构无效。",
+      "yt-dlp 下载的 json3 字幕结构无效。",
       parsedTranscript.error,
     );
   }
@@ -357,8 +251,7 @@ async function fetchYoutubeCaptionSegments(captionTrack: YoutubeCaptionTrack) {
   return (
     parsedTranscript.data.events
       ?.map(toTranscriptSegment)
-      .filter((segment): segment is TranscriptSegment => segment !== null) ??
-    []
+      .filter((segment): segment is TranscriptSegment => segment !== null) ?? []
   );
 }
 
@@ -386,4 +279,67 @@ function toTranscriptSegment(event: YoutubeJson3Event) {
     startSeconds,
     text,
   };
+}
+
+function parseVttTranscript(fileContent: string): TranscriptSegment[] {
+  const normalizedContent = fileContent.replace(/\r\n/g, "\n");
+  const cueBlocks = normalizedContent.split(/\n{2,}/u);
+  const segments: TranscriptSegment[] = [];
+
+  for (const cueBlock of cueBlocks) {
+    const lines = cueBlock
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const timingLineIndex = lines.findIndex((line) => line.includes("-->"));
+
+    if (timingLineIndex === -1) {
+      continue;
+    }
+
+    const [startTime, endTime] = lines[timingLineIndex]!
+      .split("-->")
+      .map((time) => time.trim().split(/\s+/u)[0]);
+    const text = lines
+      .slice(timingLineIndex + 1)
+      .join(" ")
+      .replace(/<[^>]+>/gu, "")
+      .replace(/\s+/gu, " ")
+      .trim();
+
+    if (!text) {
+      continue;
+    }
+
+    segments.push({
+      endSeconds: parseVttTimestamp(endTime),
+      startSeconds: parseVttTimestamp(startTime),
+      text,
+    });
+  }
+
+  return segments;
+}
+
+function parseVttTimestamp(timestamp: string | undefined) {
+  if (!timestamp) {
+    return null;
+  }
+
+  const parts = timestamp.split(":");
+  const secondsPart = parts.pop();
+
+  if (!secondsPart) {
+    return null;
+  }
+
+  const seconds = Number(secondsPart.replace(",", "."));
+  const minutes = Number(parts.pop() ?? 0);
+  const hours = Number(parts.pop() ?? 0);
+
+  if ([hours, minutes, seconds].some((part) => Number.isNaN(part))) {
+    return null;
+  }
+
+  return hours * 3600 + minutes * 60 + seconds;
 }

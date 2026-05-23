@@ -54,7 +54,7 @@ create_video_digest_job
   -> @repo/queue VideoDigestQueue
   -> apps/worker job_events(fetching_metadata)
   -> @repo/video-digest-core fetchVideoMetadata()
-  -> YouTube oEmbed provider / Bilibili placeholder
+  -> YouTube yt-dlp provider / Bilibili placeholder
   -> persistVideoMetadata()
   -> @repo/database VideoRecordsRepository.updateMetadataForUser()
   -> apps/worker job_events(extracting_transcript)

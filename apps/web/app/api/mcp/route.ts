@@ -2,6 +2,7 @@ import {
   createSupabaseJobEventsRepository,
   createSupabaseUsageEventsRepository,
   createSupabaseVideoRecordsRepository,
+  isMissingDatabaseSchemaError,
 } from "@repo/database";
 import { createVideoDigestJobInputSchema } from "@repo/job-contracts";
 import { createVideoDigestJobTool } from "@repo/mcp-tools";
@@ -9,6 +10,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { getVideoDigestQueue } from "@/lib/queue/video-digest-queue";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -62,11 +64,14 @@ export async function POST(request: NextRequest) {
     userId: claims.sub,
     scopes: tool.requiredScopes,
   };
+  const supabaseAdmin = createAdminClient();
 
   const handler = tool.createHandler({
-    videoRecordsRepository: createSupabaseVideoRecordsRepository(supabase),
-    jobEventsRepository: createSupabaseJobEventsRepository(supabase),
-    usageEventsRepository: createSupabaseUsageEventsRepository(supabase),
+    videoRecordsRepository:
+      createSupabaseVideoRecordsRepository(supabaseAdmin),
+    jobEventsRepository: createSupabaseJobEventsRepository(supabaseAdmin),
+    usageEventsRepository:
+      createSupabaseUsageEventsRepository(supabaseAdmin),
     videoDigestQueue: getVideoDigestQueue(),
   });
 
@@ -78,6 +83,13 @@ export async function POST(request: NextRequest) {
       result,
     });
   } catch (caught) {
+    if (isMissingDatabaseSchemaError(caught)) {
+      return jsonError(
+        "Supabase 数据表尚未创建。请先在 Supabase SQL Editor 执行 supabase/migrations/20260520213500_initial_video_digest_schema.sql。",
+        503,
+      );
+    }
+
     const message =
       caught instanceof Error ? caught.message : "创建视频摘要任务失败。";
 

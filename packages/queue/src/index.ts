@@ -88,11 +88,7 @@ export function createBullMqVideoDigestQueue(
   return {
     async enqueueVideoDigestJob(payload) {
       const job = await queue.add(videoDigestJobName, payload, {
-        attempts: 3,
-        backoff: {
-          type: "exponential",
-          delay: 5_000,
-        },
+        attempts: 1,
         jobId: payload.recordId,
         removeOnComplete: {
           age: 60 * 60 * 24 * 7,

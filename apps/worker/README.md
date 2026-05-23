@@ -23,11 +23,22 @@
 REDIS_URL=redis://localhost:6379
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx
+YTDLP_PATH=yt-dlp
 ```
 
 开发模式会自动读取 `apps/worker/.env.local`。也可以直接通过系统环境变量注入同名配置。
 
 `SUPABASE_SERVICE_ROLE_KEY` 只允许在后台 worker 使用，不能暴露给浏览器。
+
+`YTDLP_PATH` 默认可以写 `yt-dlp`，表示使用系统 PATH 中的 yt-dlp；Docker/Railway 部署时可以写成 `/usr/local/bin/yt-dlp`。
+
+本地开发如需让 worker 和 yt-dlp 走代理，可以额外配置：
+
+```txt
+LOCAL_PROXY_URL=http://127.0.0.1:10808
+```
+
+生产环境不配置 `LOCAL_PROXY_URL` 时，worker 会直连外网。
 
 BullMQ 建议 Redis 版本至少为 6.2.0。Redis 5.x 可用于早期本地验证，但会输出版本提醒。
 
@@ -55,9 +66,9 @@ src/index.ts
   -> 失败时写入 job_events(failed)
 ```
 
-当前 YouTube provider 使用 oEmbed 读取标题、作者和封面；Bilibili provider 仍是占位实现，因此 Bilibili 任务会在 `fetchVideoMetadata()` 阶段触发失败链路。这用于验证失败状态和失败事件可以完整落库。
+当前 YouTube 元数据 provider 使用 `yt-dlp` 读取标题、作者、时长和封面；Bilibili provider 仍是占位实现，因此 Bilibili 任务会在 `fetchVideoMetadata()` 阶段触发失败链路。这用于验证失败状态和失败事件可以完整落库。
 
-当前 YouTube 字幕 provider 会从视频页面读取公开字幕轨道，并将字幕全文和分段写入 `transcripts`、`transcript_segments`。Bilibili 字幕 provider 仍是占位实现，因此 Bilibili 任务会在字幕阶段触发失败链路。
+当前 YouTube 字幕 provider 只通过 `yt-dlp` 下载 `json3` 或 `vtt` 字幕文件，再将字幕全文和分段写入 `transcripts`、`transcript_segments`。Bilibili 字幕 provider 仍是占位实现，因此 Bilibili 任务会在字幕阶段触发失败链路。
 
 失败时会同时更新 `video_records.error_code` 和 `job_events.metadata.errorCode`：
 

@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { createSupabaseVideoRecordsRepository } from "@repo/database";
+import {
+  createSupabaseVideoRecordsRepository,
+  isMissingDatabaseSchemaError,
+  type VideoRecordRow,
+} from "@repo/database";
 
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
@@ -32,10 +36,22 @@ export default async function RecordsPage() {
   const user = await requireUser();
   const supabase = await createClient();
   const repository = createSupabaseVideoRecordsRepository(supabase);
-  const records = await repository.listForUser({
-    limit: 100,
-    userId: user.id,
-  });
+  let records: VideoRecordRow[] = [];
+  let databaseErrorMessage: string | null = null;
+
+  try {
+    records = await repository.listForUser({
+      limit: 100,
+      userId: user.id,
+    });
+  } catch (caught) {
+    if (!isMissingDatabaseSchemaError(caught)) {
+      throw caught;
+    }
+
+    databaseErrorMessage =
+      "Supabase 数据表尚未创建。请先在 Supabase SQL Editor 执行 supabase/migrations/20260520213500_initial_video_digest_schema.sql。";
+  }
 
   return (
     <AppShell current="/records" userEmail={user.email}>
@@ -117,7 +133,9 @@ export default async function RecordsPage() {
       <Panel className="mt-5 overflow-hidden">
         <PanelHeader
           title="全部记录"
-          description={`${records.length} 条真实记录`}
+          description={
+            databaseErrorMessage ?? `${records.length} 条真实记录`
+          }
         />
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] border-collapse text-left text-sm">

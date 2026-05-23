@@ -47,9 +47,9 @@ src/modules/transcripts/
   createBilibiliTranscriptProvider()
 ```
 
-当前 YouTube provider 使用 YouTube oEmbed 读取标题、作者和封面，不需要 API key；oEmbed 不返回视频时长，所以 `durationSeconds` 暂时写入 null。Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。`persistVideoMetadata()` 已经能把 provider 返回的标题、作者、时长和封面写回 `video_records`。
+当前 YouTube 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download` 读取标题、作者、时长和封面，不需要 API key。Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。`persistVideoMetadata()` 已经能把 provider 返回的标题、作者、时长和封面写回 `video_records`。
 
-当前 YouTube 字幕 provider 会从视频页面读取公开字幕轨道，再用字幕轨道地址拉取 `json3` 分段字幕，不需要 API key。`persistTranscript()` 已经能创建 `transcripts` 主记录和 `transcript_segments` 分段记录。Bilibili 字幕 provider 仍是占位实现，会抛出 `TranscriptProviderUnavailableError`。
+当前 YouTube 字幕 provider 只通过 `yt-dlp` 下载 `json3` 或 `vtt` 字幕文件，再由 Node 解析为分段字幕，不需要 API key。`persistTranscript()` 已经能创建 `transcripts` 主记录和 `transcript_segments` 分段记录。Bilibili 字幕 provider 仍是占位实现，会抛出 `TranscriptProviderUnavailableError`。
 
 ## 调用方向
 

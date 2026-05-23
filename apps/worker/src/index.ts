@@ -37,9 +37,11 @@ import { createClient } from "@supabase/supabase-js";
 import { config as loadEnvFile } from "dotenv";
 import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { ProxyAgent, setGlobalDispatcher } from "undici";
 import WebSocket from "ws";
 
 loadWorkerEnv();
+configureLocalProxy();
 
 type SupabaseClientOptions = NonNullable<Parameters<typeof createClient>[2]>;
 type RealtimeTransport = NonNullable<
@@ -238,7 +240,6 @@ async function processVideoDigestJob(
     });
   } catch (caught) {
     await markVideoDigestJobFailed(dependencies, payload, context, caught);
-    throw caught;
   }
 }
 
@@ -369,6 +370,17 @@ function loadWorkerEnv() {
       quiet: true,
     });
   }
+}
+
+function configureLocalProxy() {
+  const proxyUrl = process.env.LOCAL_PROXY_URL;
+
+  if (!proxyUrl) {
+    return;
+  }
+
+  setGlobalDispatcher(new ProxyAgent(proxyUrl));
+  console.log(`Worker fetch proxy enabled: ${proxyUrl}`);
 }
 
 if (isEntryPoint()) {

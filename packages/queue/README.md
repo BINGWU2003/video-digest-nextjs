@@ -37,8 +37,7 @@ src/index.ts
 `createNoopVideoDigestQueue()` 只返回标准 enqueue 结果，不会真正写入 Redis。`createBullMqVideoDigestQueue()` 使用 BullMQ `Queue.add()` 写入 Redis，并设置：
 
 - `jobId = recordId`，避免同一记录重复投递多个 job。
-- `attempts = 3`，失败后最多重试 3 次。
-- `backoff = exponential`，重试间隔按指数退避。
+- `attempts = 1`，当前视频处理流水尚未做幂等恢复，失败后由应用状态记录真实错误。
 - `removeOnComplete` / `removeOnFail`，限制 Redis 中历史 job 保留量。
 
 ## 常用命令

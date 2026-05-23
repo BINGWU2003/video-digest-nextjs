@@ -71,7 +71,7 @@ packages/video-digest-core
     fetchVideoMetadata()
     persistVideoMetadata()
     createVideoMetadataProviderRegistry()
-    YouTube oEmbed provider
+    YouTube yt-dlp provider
     Bilibili provider 占位实现
   src/modules/transcripts/
     TranscriptProvider
@@ -125,7 +125,7 @@ packages/mcp-tools
     createVideoDigestJobTool
 ```
 
-这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 会根据 `REDIS_URL` 自动选择 BullMQ producer 或 no-op 队列；Dashboard 能创建真实任务，记录列表和详情页能读取真实记录与字幕分段。worker 会消费 BullMQ job，将记录状态推进到 `fetching_metadata`，调用视频元数据模块，元数据写回成功后推进到 `extracting_transcript`，再调用字幕模块，并在失败时写入 `failed` 状态和失败事件。YouTube 元数据 provider 已通过 oEmbed 接入标题、作者和封面读取，元数据写回边界已接入 `video_records`；Bilibili 元数据 provider 仍为占位实现。字幕模块已接入 worker，YouTube 字幕 provider 已支持读取公开字幕轨道并通过 `persistTranscript()` 写入 `transcripts` 和 `transcript_segments`；Bilibili 字幕 provider 仍为占位实现。worker 失败时会按错误类型写入细分错误码，便于前端展示和后续重试策略。
+这个模板已经通过 repository interface 接入 Supabase 实现，并通过 queue interface 固定了投递边界。当前 Web 会根据 `REDIS_URL` 自动选择 BullMQ producer 或 no-op 队列；Dashboard 能创建真实任务，记录列表和详情页能读取真实记录与字幕分段。worker 会消费 BullMQ job，将记录状态推进到 `fetching_metadata`，调用视频元数据模块，元数据写回成功后推进到 `extracting_transcript`，再调用字幕模块，并在失败时写入 `failed` 状态和失败事件。YouTube 元数据 provider 已通过 `yt-dlp` 接入标题、作者、时长和封面读取，元数据写回边界已接入 `video_records`；Bilibili 元数据 provider 仍为占位实现。字幕模块已接入 worker，YouTube 字幕 provider 已通过 `yt-dlp` 支持读取公开字幕并通过 `persistTranscript()` 写入 `transcripts` 和 `transcript_segments`；Bilibili 字幕 provider 仍为占位实现。worker 失败时会按错误类型写入细分错误码，便于前端展示和后续重试策略。
 
 ## Worker 失败码
 

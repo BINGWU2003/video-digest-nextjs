@@ -1,6 +1,8 @@
 import {
+  createSupabaseSummariesRepository,
   createSupabaseTranscriptsRepository,
   createSupabaseVideoRecordsRepository,
+  type SummaryRow,
   type TranscriptSegmentRow,
   type VideoRecordStatus,
 } from "@repo/database";
@@ -58,6 +60,7 @@ export default async function RecordDetailPage({
   const user = await requireUser();
   const supabase = await createClient();
   const videoRecordsRepository = createSupabaseVideoRecordsRepository(supabase);
+  const summariesRepository = createSupabaseSummariesRepository(supabase);
   const transcriptsRepository = createSupabaseTranscriptsRepository(supabase);
 
   const record = await videoRecordsRepository.findByIdForUser({
@@ -72,6 +75,10 @@ export default async function RecordDetailPage({
   const transcript = await transcriptsRepository.findLatestForRecord({
     recordId: record.id,
     segmentLimit: 200,
+    userId: user.id,
+  });
+  const summary = await summariesRepository.findLatestForRecord({
+    recordId: record.id,
     userId: user.id,
   });
 
@@ -139,11 +146,41 @@ export default async function RecordDetailPage({
 
               {record.status === "summarizing" ? (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                  字幕已写入，摘要模块尚未接入，任务会暂时停留在生成摘要阶段。
+                  字幕已写入，正在生成摘要。
                 </div>
               ) : null}
             </div>
           </Panel>
+
+          {record.outputMode !== "transcript" || summary ? (
+            <Panel>
+              <PanelHeader
+                title="摘要"
+                description={
+                  summary
+                    ? `${summary.model ?? "未知模型"} · ${formatDateTime(summary.createdAt)}`
+                    : "等待生成"
+                }
+              />
+              {summary ? (
+                <div className="grid gap-5 p-5">
+                  {summary.shortSummary ? (
+                    <p className="text-sm leading-6 text-slate-700">
+                      {summary.shortSummary}
+                    </p>
+                  ) : null}
+
+                  <SummaryList title="关键要点" values={summary.keyPoints} />
+                  <SummaryTimeline summary={summary} />
+                  <SummaryList title="结论" values={summary.takeaways} />
+                </div>
+              ) : (
+                <div className="p-5 text-sm text-slate-600">
+                  worker 生成摘要后会显示在这里。
+                </div>
+              )}
+            </Panel>
+          ) : null}
 
           <Panel>
             <PanelHeader
@@ -256,6 +293,86 @@ export default async function RecordDetailPage({
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function SummaryList({
+  title,
+  values,
+}: {
+  title: string;
+  values: unknown[];
+}) {
+  const items = values.filter((value): value is string => typeof value === "string");
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="grid gap-2">
+      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      <ul className="grid gap-2 text-sm leading-6 text-slate-700">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2">
+            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-slate-400" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SummaryTimeline({ summary }: { summary: SummaryRow }) {
+  const items = summary.timeline.filter(isSummaryTimelineItem);
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="grid gap-2">
+      <h3 className="text-sm font-semibold text-slate-900">时间线</h3>
+      <div className="divide-y divide-slate-200 text-sm">
+        {items.map((item) => (
+          <div
+            key={`${item.time ?? "--"}-${item.title}`}
+            className="grid gap-2 py-3 sm:grid-cols-[72px_1fr]"
+          >
+            <span className="font-mono text-xs text-slate-500">
+              {item.time ?? "--:--"}
+            </span>
+            <span>
+              <span className="block font-medium text-slate-900">
+                {item.title}
+              </span>
+              <span className="mt-1 block leading-6 text-slate-700">
+                {item.summary}
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function isSummaryTimelineItem(value: unknown): value is {
+  summary: string;
+  time: string | null;
+  title: string;
+} {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const item = value as Record<string, unknown>;
+
+  return (
+    typeof item.summary === "string" &&
+    typeof item.title === "string" &&
+    (typeof item.time === "string" || item.time === null || item.time === undefined)
   );
 }
 

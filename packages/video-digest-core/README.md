@@ -45,11 +45,20 @@ src/modules/transcripts/
   createTranscriptProviderRegistry()
   createYoutubeTranscriptProvider()
   createBilibiliTranscriptProvider()
+
+src/modules/summaries/
+  GeneratedSummary
+  SummaryProvider
+  generateSummary()
+  persistSummary()
+  createOpenAICompatibleSummaryProvider()
 ```
 
 当前 YouTube 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download` 读取标题、作者、时长和封面，不需要 API key。Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。`persistVideoMetadata()` 已经能把 provider 返回的标题、作者、时长和封面写回 `video_records`。
 
 当前 YouTube 字幕 provider 只通过 `yt-dlp` 下载 `json3` 或 `vtt` 字幕文件，再由 Node 解析为分段字幕，不需要 API key。`persistTranscript()` 已经能创建 `transcripts` 主记录和 `transcript_segments` 分段记录。Bilibili 字幕 provider 仍是占位实现，会抛出 `TranscriptProviderUnavailableError`。
+
+当前摘要 provider 使用 OpenAI-compatible Chat Completions API，要求模型返回结构化 JSON。`persistSummary()` 已经能把摘要标题、短概览、关键要点、时间线、结论和 Markdown 写入 `summaries`。
 
 ## 调用方向
 
@@ -71,4 +80,4 @@ pnpm --filter @repo/video-digest-core build
 ## 后续计划
 
 1. 接入 Bilibili 元数据 provider。
-2. 增加 summary 模块。
+2. 增加长字幕分段摘要策略。

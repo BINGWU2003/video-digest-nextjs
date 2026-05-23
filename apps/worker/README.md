@@ -24,6 +24,7 @@ REDIS_URL=redis://localhost:6379
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx
 YTDLP_PATH=yt-dlp
+OPENAI_API_KEY=sk_xxx
 ```
 
 开发模式会自动读取 `apps/worker/.env.local`。也可以直接通过系统环境变量注入同名配置。
@@ -31,6 +32,13 @@ YTDLP_PATH=yt-dlp
 `SUPABASE_SERVICE_ROLE_KEY` 只允许在后台 worker 使用，不能暴露给浏览器。
 
 `YTDLP_PATH` 默认可以写 `yt-dlp`，表示使用系统 PATH 中的 yt-dlp；Docker/Railway 部署时可以写成 `/usr/local/bin/yt-dlp`。
+
+摘要任务使用 OpenAI-compatible Chat Completions API。`OPENAI_API_KEY` 只在 `summary` 或 `summary_and_email` 输出模式进入摘要阶段时需要。可选配置：
+
+```txt
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_SUMMARY_MODEL=gpt-4o-mini
+```
 
 本地开发如需让 worker 和 yt-dlp 走代理，可以额外配置：
 
@@ -62,6 +70,10 @@ src/index.ts
   -> persistTranscript()
   -> transcript 输出模式更新 video_records.status = completed
   -> summary 输出模式更新 video_records.status = summarizing
+  -> generateSummary()
+  -> persistSummary()
+  -> summary 输出模式更新 video_records.status = completed
+  -> summary_and_email 输出模式更新 video_records.status = delivering
   -> 失败时更新 video_records.status = failed
   -> 失败时写入 job_events(failed)
 ```
@@ -70,12 +82,15 @@ src/index.ts
 
 当前 YouTube 字幕 provider 只通过 `yt-dlp` 下载 `json3` 或 `vtt` 字幕文件，再将字幕全文和分段写入 `transcripts`、`transcript_segments`。Bilibili 字幕 provider 仍是占位实现，因此 Bilibili 任务会在字幕阶段触发失败链路。
 
+当前摘要 provider 使用 OpenAI-compatible API 生成结构化 JSON，再写入 `summaries` 表。`summary_and_email` 任务会在摘要成功后进入 `delivering`，等待后续邮件投递模块接入。
+
 失败时会同时更新 `video_records.error_code` 和 `job_events.metadata.errorCode`：
 
 | 错误码 | 含义 |
 | --- | --- |
 | `metadata_fetch_failed` | 视频元数据 provider 已接入，但读取平台元数据失败 |
 | `provider_unavailable` | 当前平台的元数据或字幕 provider 尚未接入 |
+| `summary_generation_failed` | 摘要 provider 已接入，但模型调用或结构化输出失败 |
 | `transcript_fetch_failed` | 字幕 provider 已接入，但读取字幕内容失败 |
 | `transcript_not_found` | 平台视频没有可用公开字幕 |
 | `worker_processing_failed` | 其他未分类的 worker 处理错误 |
@@ -93,5 +108,5 @@ pnpm --filter worker start
 ## 后续计划
 
 1. 接入 Bilibili 元数据 provider。
-2. 接入摘要生成和邮件投递。
-3. 增加失败恢复策略和重试策略。
+2. 接入邮件投递。
+3. 增加更长字幕的分段摘要策略。

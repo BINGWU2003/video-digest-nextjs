@@ -1,8 +1,10 @@
 import {
   createSupabaseJobEventsRepository,
+  createSupabaseSummariesRepository,
   createSupabaseTranscriptsRepository,
   createSupabaseVideoRecordsRepository,
   type JobEventsRepository,
+  type SummariesRepository,
   type TranscriptsRepository,
   type VideoRecordsRepository,
 } from "@repo/database";
@@ -17,14 +19,19 @@ import {
 import {
   createBilibiliTranscriptProvider,
   createBilibiliVideoMetadataProvider,
+  createOpenAICompatibleSummaryProvider,
   createTranscriptProviderRegistry,
   createVideoMetadataProviderRegistry,
   createYoutubeTranscriptProvider,
   createYoutubeVideoMetadataProvider,
+  generateSummary,
   fetchTranscript,
   fetchVideoMetadata,
+  persistSummary,
   persistTranscript,
   persistVideoMetadata,
+  SummaryGenerationError,
+  type SummaryProvider,
   TranscriptFetchError,
   TranscriptNotFoundError,
   TranscriptProviderUnavailableError,
@@ -72,6 +79,7 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
   );
 
   const jobEventsRepository = createSupabaseJobEventsRepository(supabase);
+  const summariesRepository = createSupabaseSummariesRepository(supabase);
   const transcriptsRepository = createSupabaseTranscriptsRepository(supabase);
   const videoRecordsRepository = createSupabaseVideoRecordsRepository(supabase);
   const metadataProviderRegistry = createVideoMetadataProviderRegistry([
@@ -82,6 +90,7 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
     createYoutubeTranscriptProvider(),
     createBilibiliTranscriptProvider(),
   ]);
+  const summaryProvider = createOpenAICompatibleSummaryProvider();
 
   const worker = createBullMqVideoDigestWorker({
     redisUrl: config.redisUrl,
@@ -90,6 +99,8 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
         {
           jobEventsRepository,
           metadataProviderRegistry,
+          summariesRepository,
+          summaryProvider,
           transcriptProviderRegistry,
           transcriptsRepository,
           videoRecordsRepository,
@@ -110,6 +121,8 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
 type ProcessVideoDigestJobDependencies = {
   jobEventsRepository: JobEventsRepository;
   metadataProviderRegistry: VideoMetadataProviderRegistry;
+  summariesRepository: SummariesRepository;
+  summaryProvider: SummaryProvider;
   transcriptProviderRegistry: TranscriptProviderRegistry;
   transcriptsRepository: TranscriptsRepository;
   videoRecordsRepository: VideoRecordsRepository;
@@ -118,6 +131,7 @@ type ProcessVideoDigestJobDependencies = {
 type VideoDigestJobFailureCode =
   | "metadata_fetch_failed"
   | "provider_unavailable"
+  | "summary_generation_failed"
   | "transcript_fetch_failed"
   | "transcript_not_found"
   | "worker_processing_failed";
@@ -210,25 +224,46 @@ async function processVideoDigestJob(
       userId: record.userId,
     });
 
-    const nextStatus =
-      record.outputMode === "transcript" ? "completed" : "summarizing";
+    if (record.outputMode === "transcript") {
+      await dependencies.videoRecordsRepository.updateStatusForUser({
+        id: record.id,
+        userId: record.userId,
+        status: "completed",
+        expectedStatus: "extracting_transcript",
+        completedAt: new Date(),
+      });
+
+      await dependencies.jobEventsRepository.create({
+        recordId: record.id,
+        userId: record.userId,
+        status: "completed",
+        message: "字幕已提取完成，任务已完成。",
+        metadata: {
+          attemptsMade: context.attemptsMade,
+          language: transcript.language,
+          queueJobId: context.queueJobId,
+          segmentCount: transcriptResult.segments.length,
+          source: transcript.source,
+          transcriptId: transcriptResult.transcript.id,
+        },
+      });
+
+      return;
+    }
 
     await dependencies.videoRecordsRepository.updateStatusForUser({
       id: record.id,
       userId: record.userId,
-      status: nextStatus,
+      status: "summarizing",
       expectedStatus: "extracting_transcript",
-      completedAt: nextStatus === "completed" ? new Date() : null,
+      completedAt: null,
     });
 
     await dependencies.jobEventsRepository.create({
       recordId: record.id,
       userId: record.userId,
-      status: nextStatus,
-      message:
-        nextStatus === "completed"
-          ? "字幕已提取完成，任务已完成。"
-          : "字幕已提取完成，等待后续摘要生成模块处理。",
+      status: "summarizing",
+      message: "字幕已提取完成，开始生成摘要。",
       metadata: {
         attemptsMade: context.attemptsMade,
         language: transcript.language,
@@ -236,6 +271,53 @@ async function processVideoDigestJob(
         segmentCount: transcriptResult.segments.length,
         source: transcript.source,
         transcriptId: transcriptResult.transcript.id,
+      },
+    });
+
+    const summary = await generateSummary(
+      {
+        summaryProvider: dependencies.summaryProvider,
+      },
+      {
+        format:
+          record.outputMode === "summary_and_email" ? "email_digest" : "brief",
+        plainText: transcript.plainText,
+        segments: transcript.segments,
+        sourceUrl: record.sourceUrl,
+        transcriptLanguage: transcript.language,
+        videoAuthor: record.author,
+        videoTitle: record.title,
+      },
+    );
+    const summaryResult = await persistSummary(dependencies, {
+      recordId: record.id,
+      summary,
+      userId: record.userId,
+    });
+    const finalStatus = record.sendEmail ? "delivering" : "completed";
+
+    await dependencies.videoRecordsRepository.updateStatusForUser({
+      id: record.id,
+      userId: record.userId,
+      status: finalStatus,
+      expectedStatus: "summarizing",
+      completedAt: finalStatus === "completed" ? new Date() : null,
+    });
+
+    await dependencies.jobEventsRepository.create({
+      recordId: record.id,
+      userId: record.userId,
+      status: finalStatus,
+      message:
+        finalStatus === "completed"
+          ? "摘要已生成，任务已完成。"
+          : "摘要已生成，等待邮件投递模块处理。",
+      metadata: {
+        attemptsMade: context.attemptsMade,
+        model: summary.model,
+        promptVersion: summary.promptVersion,
+        queueJobId: context.queueJobId,
+        summaryId: summaryResult.id,
       },
     });
   } catch (caught) {
@@ -315,6 +397,14 @@ function resolveVideoDigestJobFailure(caught: unknown): VideoDigestJobFailure {
   if (caught instanceof TranscriptFetchError) {
     return {
       code: "transcript_fetch_failed",
+      message,
+      name,
+    };
+  }
+
+  if (caught instanceof SummaryGenerationError) {
+    return {
+      code: "summary_generation_failed",
       message,
       name,
     };

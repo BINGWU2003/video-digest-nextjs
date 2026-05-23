@@ -1,7 +1,10 @@
 import {
+  createSupabaseDeliveryRecordsRepository,
+  createSupabaseEmailAddressesRepository,
   createSupabaseJobEventsRepository,
   createSupabaseSummariesRepository,
   createSupabaseTranscriptsRepository,
+  createSupabaseUsageEventsRepository,
   createSupabaseVideoRecordsRepository,
 } from "@repo/database";
 import {
@@ -26,6 +29,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
 import WebSocket from "ws";
 
+import { createResendEmailDeliveryProvider } from "./email-delivery.js";
 import { processVideoDigestJob } from "./process-video-digest-job.js";
 
 loadWorkerEnv();
@@ -59,9 +63,12 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
     },
   );
 
+  const deliveryRecordsRepository = createSupabaseDeliveryRecordsRepository(supabase);
+  const emailAddressesRepository = createSupabaseEmailAddressesRepository(supabase);
   const jobEventsRepository = createSupabaseJobEventsRepository(supabase);
   const summariesRepository = createSupabaseSummariesRepository(supabase);
   const transcriptsRepository = createSupabaseTranscriptsRepository(supabase);
+  const usageEventsRepository = createSupabaseUsageEventsRepository(supabase);
   const videoRecordsRepository = createSupabaseVideoRecordsRepository(supabase);
   const metadataProviderRegistry = createVideoMetadataProviderRegistry([
     createYoutubeVideoMetadataProvider(),
@@ -72,18 +79,26 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
     createBilibiliTranscriptProvider(),
   ]);
   const summaryProvider = createOpenAICompatibleSummaryProvider();
+  const emailDeliveryProvider = createResendEmailDeliveryProvider({
+    apiKey: process.env.RESEND_API_KEY,
+    fromEmail: process.env.RESEND_FROM_EMAIL,
+  });
 
   const worker = createBullMqVideoDigestWorker({
     redisUrl: config.redisUrl,
     async processor(payload, context) {
       await processVideoDigestJob(
         {
+          deliveryRecordsRepository,
+          emailAddressesRepository,
+          emailDeliveryProvider,
           jobEventsRepository,
           metadataProviderRegistry,
           summariesRepository,
           summaryProvider,
           transcriptProviderRegistry,
           transcriptsRepository,
+          usageEventsRepository,
           videoRecordsRepository,
         },
         payload,

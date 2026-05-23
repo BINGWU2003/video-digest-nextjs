@@ -52,6 +52,12 @@ async function main() {
     "OPENAI_SUMMARY_MAX_TOKENS",
     "apps/worker/.env.local",
   );
+  checkEnv(workerEnv, "RESEND_API_KEY", "apps/worker/.env.local", {
+    allowMissing: true,
+  });
+  checkEnv(workerEnv, "RESEND_FROM_EMAIL", "apps/worker/.env.local", {
+    allowMissing: true,
+  });
 
   section("Services");
   await checkRedis(
@@ -285,6 +291,7 @@ function isPlaceholder(value) {
     normalizedValue.includes("xxx") ||
     normalizedValue.includes("your-project-ref") ||
     normalizedValue.includes("your_") ||
+    normalizedValue === "re_xxx" ||
     normalizedValue === "sk_xxx" ||
     normalizedValue === "sb_secret_xxx" ||
     normalizedValue === "sb_publishable_xxx"

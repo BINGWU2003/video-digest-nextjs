@@ -27,6 +27,8 @@ YTDLP_PATH=yt-dlp
 OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_API_KEY=sk_xxx
 OPENAI_SUMMARY_MODEL=deepseek-v4-flash
+RESEND_API_KEY=re_xxx
+RESEND_FROM_EMAIL="Video Digest <digest@example.com>"
 ```
 
 开发模式会自动读取 `apps/worker/.env.local`。也可以直接通过系统环境变量注入同名配置。
@@ -42,6 +44,8 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_SUMMARY_MODEL=gpt-4o-mini
 OPENAI_SUMMARY_MAX_TOKENS=4000
 ```
+
+邮件投递使用 Resend HTTP API。`RESEND_API_KEY` 和 `RESEND_FROM_EMAIL` 只在 `summary_and_email` 或 `sendEmail=true` 任务进入投递阶段时需要；发件地址必须来自 Resend 已验证域名。
 
 本地开发如需让 worker 和 yt-dlp 走代理，可以额外配置：
 
@@ -77,6 +81,10 @@ src/index.ts
   -> persistSummary()
   -> summary 输出模式更新 video_records.status = completed
   -> summary_and_email 输出模式更新 video_records.status = delivering
+  -> 查询默认 verified 邮箱
+  -> 创建 delivery_records(queued)
+  -> 调用 Resend 投递摘要邮件
+  -> 成功时更新 delivery_records(sent)，video_records.status = completed
   -> 失败时更新 video_records.status = failed
   -> 失败时写入 job_events(failed)
 ```
@@ -85,12 +93,14 @@ src/index.ts
 
 当前 YouTube 字幕 provider 只通过 `yt-dlp` 下载 `json3` 或 `vtt` 字幕文件，再将字幕全文和分段写入 `transcripts`、`transcript_segments`。Bilibili 字幕 provider 仍是占位实现，因此 Bilibili 任务会在字幕阶段触发失败链路。
 
-当前摘要 provider 使用 OpenAI-compatible API 生成结构化 JSON，再写入 `summaries` 表。`summary_and_email` 任务会在摘要成功后进入 `delivering`，等待后续邮件投递模块接入。
+当前摘要 provider 使用 OpenAI-compatible API 生成结构化 JSON，再写入 `summaries` 表。`summary_and_email` 任务会在摘要成功后进入 `delivering`，然后通过 Resend 投递到用户默认已验证邮箱。
 
 失败时会同时更新 `video_records.error_code` 和 `job_events.metadata.errorCode`：
 
 | 错误码 | 含义 |
 | --- | --- |
+| `email_delivery_failed` | Resend 邮件投递失败 |
+| `email_recipient_not_found` | 未找到默认已验证收件邮箱 |
 | `metadata_fetch_failed` | 视频元数据 provider 已接入，但读取平台元数据失败 |
 | `provider_unavailable` | 当前平台的元数据或字幕 provider 尚未接入 |
 | `summary_generation_failed` | 摘要 provider 已接入，但模型调用或结构化输出失败 |
@@ -112,5 +122,5 @@ pnpm --filter worker start
 ## 后续计划
 
 1. 接入 Bilibili 元数据 provider。
-2. 接入邮件投递。
+2. 接入邮箱设置页真实增删改和验证邮件。
 3. 增加更长字幕的分段摘要策略。

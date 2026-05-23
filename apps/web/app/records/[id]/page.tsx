@@ -1,8 +1,10 @@
 import {
+  createSupabaseDeliveryRecordsRepository,
   createSupabaseJobEventsRepository,
   createSupabaseSummariesRepository,
   createSupabaseTranscriptsRepository,
   createSupabaseVideoRecordsRepository,
+  type DeliveryRecordRow,
   type JobEventRow,
   type SummaryRow,
   type TranscriptSegmentRow,
@@ -70,6 +72,8 @@ export default async function RecordDetailPage({
   const user = await requireUser();
   const supabase = await createClient();
   const videoRecordsRepository = createSupabaseVideoRecordsRepository(supabase);
+  const deliveryRecordsRepository =
+    createSupabaseDeliveryRecordsRepository(supabase);
   const jobEventsRepository = createSupabaseJobEventsRepository(supabase);
   const summariesRepository = createSupabaseSummariesRepository(supabase);
   const transcriptsRepository = createSupabaseTranscriptsRepository(supabase);
@@ -83,7 +87,11 @@ export default async function RecordDetailPage({
     notFound();
   }
 
-  const [events, transcript, summary] = await Promise.all([
+  const [deliveryRecord, events, transcript, summary] = await Promise.all([
+    deliveryRecordsRepository.findLatestForRecord({
+      recordId: record.id,
+      userId: user.id,
+    }),
     jobEventsRepository.listForRecord({
       recordId: record.id,
       userId: user.id,
@@ -293,7 +301,7 @@ export default async function RecordDetailPage({
                 ["创建时间", formatDateTime(record.createdAt)],
                 ["完成时间", formatDateTime(record.completedAt)],
                 ["输出模式", formatOutputMode(record.outputMode)],
-                ["投递", record.sendEmail ? "待投递" : "不投递"],
+                ["投递", formatDeliveryStatus(record, deliveryRecord)],
               ].map(([label, value]) => (
                 <div
                   key={label}
@@ -550,6 +558,10 @@ function isCancellableStatus(status: VideoRecordStatus) {
 
 function getFailureHint(errorCode: string | null) {
   const hints: Record<string, string> = {
+    email_delivery_failed:
+      "邮件投递失败。建议检查 RESEND_API_KEY、RESEND_FROM_EMAIL、发件域名验证和 Resend 控制台日志。",
+    email_recipient_not_found:
+      "未找到默认已验证收件邮箱。请先在数据库中配置默认 verified 邮箱，后续可接入邮箱设置页管理。",
     metadata_fetch_failed:
       "建议检查视频链接是否可访问，以及本地或部署环境的网络代理配置。",
     provider_unavailable:
@@ -577,6 +589,30 @@ function formatOutputMode(mode: string) {
   };
 
   return labels[mode] ?? mode;
+}
+
+function formatDeliveryStatus(
+  record: { sendEmail: boolean; outputMode: string },
+  deliveryRecord: DeliveryRecordRow | null,
+) {
+  if (!record.sendEmail && record.outputMode !== "summary_and_email") {
+    return "不投递";
+  }
+
+  if (!deliveryRecord) {
+    return "待投递";
+  }
+
+  const labels: Record<DeliveryRecordRow["status"], string> = {
+    cancelled: "已取消",
+    failed: deliveryRecord.errorMessage
+      ? `发送失败：${deliveryRecord.errorMessage}`
+      : "发送失败",
+    queued: "排队中",
+    sent: "已发送",
+  };
+
+  return labels[deliveryRecord.status];
 }
 
 function formatSegmentTime(segment: TranscriptSegmentRow) {

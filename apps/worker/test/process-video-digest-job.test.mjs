@@ -6,6 +6,7 @@ import {
   TranscriptNotFoundError,
   VideoMetadataFetchError,
 } from "../../../packages/video-digest-core/dist/index.js";
+import { EmailDeliveryError } from "../dist/email-delivery.js";
 import { processVideoDigestJob } from "../dist/process-video-digest-job.js";
 
 const userId = "11111111-1111-4111-8111-111111111111";
@@ -53,6 +54,44 @@ describe("processVideoDigestJob", () => {
     );
     assert.equal(dependencies.summaryCalls.length, 0);
     assert.equal(dependencies.createdSummaries.length, 0);
+  });
+
+  test("delivers summary emails and completes summary_and_email jobs", async () => {
+    const dependencies = createDependencies({
+      record: createVideoRecordRow({
+        outputMode: "summary_and_email",
+        sendEmail: true,
+      }),
+    });
+
+    await processVideoDigestJob(dependencies, payload, context);
+
+    assert.deepEqual(
+      dependencies.statusUpdates.map((update) => update.status),
+      [
+        "fetching_metadata",
+        "extracting_transcript",
+        "summarizing",
+        "delivering",
+        "completed",
+      ],
+    );
+    assert.deepEqual(
+      dependencies.createdJobEvents.map((event) => event.status),
+      [
+        "fetching_metadata",
+        "extracting_transcript",
+        "summarizing",
+        "delivering",
+        "completed",
+      ],
+    );
+    assert.equal(dependencies.createdDeliveries.length, 1);
+    assert.equal(dependencies.deliveryStatusUpdates[0].status, "sent");
+    assert.equal(dependencies.updatedEmailLastSentAt.length, 1);
+    assert.equal(dependencies.createdUsageEvents.length, 1);
+    assert.equal(dependencies.emailSends.length, 1);
+    assert.equal(dependencies.records[0].status, "completed");
   });
 
   test("marks metadata fetch failures with metadata_fetch_failed", async () => {
@@ -115,6 +154,59 @@ describe("processVideoDigestJob", () => {
     );
   });
 
+  test("marks delivery failures with email_delivery_failed", async () => {
+    const dependencies = createDependencies({
+      emailDeliveryError: new EmailDeliveryError("Resend unavailable"),
+      record: createVideoRecordRow({
+        outputMode: "summary_and_email",
+        sendEmail: true,
+      }),
+    });
+
+    await processVideoDigestJob(dependencies, payload, context);
+
+    assert.equal(dependencies.records[0].status, "failed");
+    assert.equal(dependencies.records[0].errorCode, "email_delivery_failed");
+    assert.deepEqual(
+      dependencies.statusUpdates.map((update) => update.status),
+      [
+        "fetching_metadata",
+        "extracting_transcript",
+        "summarizing",
+        "delivering",
+        "failed",
+      ],
+    );
+    assert.deepEqual(
+      dependencies.deliveryStatusUpdates.map((update) => update.status),
+      ["failed"],
+    );
+    assert.equal(
+      dependencies.createdJobEvents.at(-1).metadata.errorCode,
+      "email_delivery_failed",
+    );
+  });
+
+  test("marks missing recipients with email_recipient_not_found", async () => {
+    const dependencies = createDependencies({
+      defaultEmailAddress: null,
+      record: createVideoRecordRow({
+        outputMode: "summary_and_email",
+        sendEmail: true,
+      }),
+    });
+
+    await processVideoDigestJob(dependencies, payload, context);
+
+    assert.equal(dependencies.records[0].status, "failed");
+    assert.equal(dependencies.records[0].errorCode, "email_recipient_not_found");
+    assert.equal(dependencies.createdDeliveries.length, 0);
+    assert.equal(
+      dependencies.createdJobEvents.at(-1).metadata.errorCode,
+      "email_recipient_not_found",
+    );
+  });
+
   test("stops without overriding status when cancellation is detected", async () => {
     const dependencies = createDependencies({
       onFetchMetadata: ({ records }) => {
@@ -143,18 +235,103 @@ describe("processVideoDigestJob", () => {
 
 function createDependencies(options = {}) {
   const records = [options.record ?? createVideoRecordRow()];
+  const createdDeliveries = [];
   const createdJobEvents = [];
   const createdSummaries = [];
   const createdTranscripts = [];
+  const createdUsageEvents = [];
+  const defaultEmailAddress =
+    options.defaultEmailAddress === undefined
+      ? createEmailAddressRow()
+      : options.defaultEmailAddress;
+  const deliveryStatusUpdates = [];
+  const emailSends = [];
   const metadataCalls = [];
   const statusUpdates = [];
   const summaryCalls = [];
   const transcriptCalls = [];
+  const updatedEmailLastSentAt = [];
 
   return {
+    createdDeliveries,
     createdJobEvents,
     createdSummaries,
     createdTranscripts,
+    createdUsageEvents,
+    deliveryRecordsRepository: {
+      async create(input) {
+        const delivery = {
+          ...input,
+          createdAt: fixedDate,
+          errorMessage: null,
+          id: `delivery-${createdDeliveries.length + 1}`,
+          sentAt: null,
+          status: "queued",
+        };
+        createdDeliveries.push(delivery);
+        return delivery;
+      },
+      async findLatestForRecord() {
+        throw new Error("findLatestForRecord is not used in these tests.");
+      },
+      async updateStatusForUser(input) {
+        deliveryStatusUpdates.push(input);
+        const delivery = createdDeliveries.find(
+          (candidate) =>
+            candidate.id === input.id && candidate.userId === input.userId,
+        );
+
+        if (!delivery) {
+          throw new Error("delivery not found");
+        }
+
+        const nextDelivery = {
+          ...delivery,
+          errorMessage:
+            input.errorMessage === undefined
+              ? delivery.errorMessage
+              : input.errorMessage,
+          sentAt: input.sentAt ?? null,
+          status: input.status,
+        };
+        createdDeliveries.splice(
+          createdDeliveries.indexOf(delivery),
+          1,
+          nextDelivery,
+        );
+        return nextDelivery;
+      },
+    },
+    deliveryStatusUpdates,
+    emailAddressesRepository: {
+      async findDefaultVerifiedForUser(input) {
+        return defaultEmailAddress?.userId === input.userId
+          ? defaultEmailAddress
+          : null;
+      },
+      async updateLastSentAt(input) {
+        updatedEmailLastSentAt.push(input);
+
+        return {
+          ...defaultEmailAddress,
+          lastSentAt: input.lastSentAt,
+        };
+      },
+    },
+    emailDeliveryProvider: {
+      async sendEmail(input) {
+        emailSends.push(input);
+
+        if (options.emailDeliveryError) {
+          throw options.emailDeliveryError;
+        }
+
+        return {
+          providerMessageId: "resend-message-1",
+        };
+      },
+    },
+    emailSends,
     jobEventsRepository: {
       async create(input) {
         createdJobEvents.push(input);
@@ -275,6 +452,20 @@ function createDependencies(options = {}) {
         throw new Error("findLatestForRecord is not used in these tests.");
       },
     },
+    updatedEmailLastSentAt,
+    usageEventsRepository: {
+      async create(input) {
+        createdUsageEvents.push(input);
+        return {
+          ...input,
+          createdAt: fixedDate,
+          id: `usage-event-${createdUsageEvents.length}`,
+          quantity: input.quantity ?? 1,
+          recordId: input.recordId ?? null,
+          unit: input.unit ?? "count",
+        };
+      },
+    },
     videoRecordsRepository: {
       async create() {
         throw new Error("create is not used in these tests.");
@@ -337,6 +528,22 @@ function createDependencies(options = {}) {
         return nextRecord;
       },
     },
+  };
+}
+
+function createEmailAddressRow(overrides = {}) {
+  return {
+    createdAt: fixedDate,
+    email: "user@example.com",
+    id: "33333333-3333-4333-8333-333333333333",
+    isDefault: true,
+    lastSentAt: null,
+    status: "verified",
+    userId,
+    verificationSentAt: fixedDate,
+    verificationTokenHash: null,
+    verifiedAt: fixedDate,
+    ...overrides,
   };
 }
 

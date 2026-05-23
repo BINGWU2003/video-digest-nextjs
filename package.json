@@ -5,6 +5,7 @@
     "build": "turbo run build",
     "check:local": "node scripts/check-local-dev.mjs",
     "dev": "turbo run dev",
+    "test": "turbo run test",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"

@@ -13,7 +13,7 @@
     "build": "tsc",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node --test test/create-video-record.test.mjs"
+    "test": "node --test test/create-video-record.test.mjs test/manage-video-digest-job.test.mjs"
   },
   "dependencies": {
     "@repo/database": "workspace:*",

@@ -30,6 +30,9 @@ async function main() {
     "apps/web/.env.local",
   );
   checkEnv(webEnv, "SUPABASE_SERVICE_ROLE_KEY", "apps/web/.env.local");
+  checkEnv(webEnv, "RESEND_WEBHOOK_SECRET", "apps/web/.env.local", {
+    allowMissing: true,
+  });
   checkEnv(webEnv, "REDIS_URL", "apps/web/.env.local");
 
   section("Worker env");
@@ -292,6 +295,7 @@ function isPlaceholder(value) {
     normalizedValue.includes("your-project-ref") ||
     normalizedValue.includes("your_") ||
     normalizedValue === "re_xxx" ||
+    normalizedValue === "whsec_xxx" ||
     normalizedValue === "sk_xxx" ||
     normalizedValue === "sb_secret_xxx" ||
     normalizedValue === "sb_publishable_xxx"

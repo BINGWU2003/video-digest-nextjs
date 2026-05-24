@@ -604,12 +604,22 @@ function formatDeliveryStatus(
   }
 
   const labels: Record<DeliveryRecordRow["status"], string> = {
+    bounced: deliveryRecord.errorMessage
+      ? `退信：${deliveryRecord.errorMessage}`
+      : "退信",
     cancelled: "已取消",
+    complained: deliveryRecord.errorMessage
+      ? `投诉：${deliveryRecord.errorMessage}`
+      : "投诉",
+    delivered: "已送达",
+    delivery_delayed: deliveryRecord.errorMessage
+      ? `投递延迟：${deliveryRecord.errorMessage}`
+      : "投递延迟",
     failed: deliveryRecord.errorMessage
       ? `发送失败：${deliveryRecord.errorMessage}`
       : "发送失败",
     queued: "排队中",
-    sent: "已发送",
+    sent: "已提交服务商",
   };
 
   return labels[deliveryRecord.status];

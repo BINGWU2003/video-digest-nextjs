@@ -179,6 +179,12 @@ export type DeliveryRecordRow = {
   type: DeliveryType;
   /** 投递目标 ID。邮件投递时指向 `email_addresses.id`。 */
   targetId: string;
+  /** 邮件服务商返回的消息 ID，用于 webhook 回写真实投递状态。 */
+  providerMessageId: string | null;
+  /** 最近一次服务商事件类型，例如 email.delivered。 */
+  providerEventType: string | null;
+  /** 最近一次服务商事件发生时间。 */
+  providerEventAt: Date | null;
   /** 投递生命周期状态。 */
   status: DeliveryStatus;
   /** 邮件主题或 webhook 事件标题。 */

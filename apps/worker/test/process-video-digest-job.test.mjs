@@ -88,6 +88,14 @@ describe("processVideoDigestJob", () => {
     );
     assert.equal(dependencies.createdDeliveries.length, 1);
     assert.equal(dependencies.deliveryStatusUpdates[0].status, "sent");
+    assert.equal(
+      dependencies.deliveryStatusUpdates[0].providerMessageId,
+      "resend-message-1",
+    );
+    assert.equal(
+      dependencies.deliveryStatusUpdates[0].providerEventType,
+      "email.sent",
+    );
     assert.equal(dependencies.updatedEmailLastSentAt.length, 1);
     assert.equal(dependencies.createdUsageEvents.length, 1);
     assert.equal(dependencies.emailSends.length, 1);
@@ -265,6 +273,9 @@ function createDependencies(options = {}) {
           createdAt: fixedDate,
           errorMessage: null,
           id: `delivery-${createdDeliveries.length + 1}`,
+          providerEventAt: null,
+          providerEventType: null,
+          providerMessageId: null,
           sentAt: null,
           status: "queued",
         };
@@ -291,6 +302,18 @@ function createDependencies(options = {}) {
             input.errorMessage === undefined
               ? delivery.errorMessage
               : input.errorMessage,
+          providerEventAt:
+            input.providerEventAt === undefined
+              ? delivery.providerEventAt
+              : input.providerEventAt,
+          providerEventType:
+            input.providerEventType === undefined
+              ? delivery.providerEventType
+              : input.providerEventType,
+          providerMessageId:
+            input.providerMessageId === undefined
+              ? delivery.providerMessageId
+              : input.providerMessageId,
           sentAt: input.sentAt ?? null,
           status: input.status,
         };
@@ -300,6 +323,11 @@ function createDependencies(options = {}) {
           nextDelivery,
         );
         return nextDelivery;
+      },
+      async updateStatusByProviderMessageId() {
+        throw new Error(
+          "updateStatusByProviderMessageId is not used in these tests.",
+        );
       },
     },
     deliveryStatusUpdates,

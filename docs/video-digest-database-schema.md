@@ -335,6 +335,9 @@ create table public.delivery_records (
   summary_id uuid references public.summaries(id) on delete set null,
   type text not null default 'email',
   target_id uuid not null,
+  provider_message_id text,
+  provider_event_type text,
+  provider_event_at timestamptz,
   status text not null default 'queued',
   subject text,
   error_message text,
@@ -353,6 +356,10 @@ type:
 status:
   queued
   sent
+  delivered
+  delivery_delayed
+  bounced
+  complained
   failed
   cancelled
 ```
@@ -367,7 +374,10 @@ status:
 | `summary_id` | 本次投递使用的摘要版本，摘要被删除时置空 |
 | `type` | 投递类型，当前主要为 `email`，后续可扩展 webhook |
 | `target_id` | 投递目标 ID。邮件投递时指向 `email_addresses.id` |
-| `status` | 投递状态：排队、已发送、失败或取消 |
+| `provider_message_id` | 邮件服务商返回的消息 ID，用于 webhook 回写真实投递状态 |
+| `provider_event_type` | 最近一次服务商事件类型，例如 `email.delivered` |
+| `provider_event_at` | 最近一次服务商事件发生时间 |
+| `status` | 投递状态：排队、已提交服务商、已送达、投递延迟、退信、投诉、失败或取消 |
 | `subject` | 邮件主题或 webhook 事件标题 |
 | `error_message` | 投递失败原因 |
 | `created_at` | 投递记录创建时间 |

@@ -50,6 +50,10 @@ export const deliveryTypes = ["email", "webhook"] as const;
 export const deliveryStatuses = [
   "queued",
   "sent",
+  "delivered",
+  "delivery_delayed",
+  "bounced",
+  "complained",
   "failed",
   "cancelled",
 ] as const;

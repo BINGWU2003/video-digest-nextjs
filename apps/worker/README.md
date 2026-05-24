@@ -84,7 +84,8 @@ src/index.ts
   -> 查询默认 verified 邮箱
   -> 创建 delivery_records(queued)
   -> 调用 Resend 投递摘要邮件
-  -> 成功时更新 delivery_records(sent)，video_records.status = completed
+  -> Resend 接收成功时更新 delivery_records(sent) 和 provider_message_id
+  -> 更新 video_records.status = completed
   -> 失败时更新 video_records.status = failed
   -> 失败时写入 job_events(failed)
 ```
@@ -94,6 +95,8 @@ src/index.ts
 当前 YouTube 字幕 provider 只通过 `yt-dlp` 下载 `json3` 或 `vtt` 字幕文件，再将字幕全文和分段写入 `transcripts`、`transcript_segments`。Bilibili 字幕 provider 仍是占位实现，因此 Bilibili 任务会在字幕阶段触发失败链路。
 
 当前摘要 provider 使用 OpenAI-compatible API 生成结构化 JSON，再写入 `summaries` 表。`summary_and_email` 任务会在摘要成功后进入 `delivering`，然后通过 Resend 投递到用户默认已验证邮箱。
+
+`delivery_records.status = sent` 只表示 Resend API 已接收邮件。真实收件方状态由 Web 应用的 `/api/webhooks/resend` 接收 Resend Webhook 后回写，例如 `delivered`、`delivery_delayed`、`bounced` 或 `complained`。
 
 失败时会同时更新 `video_records.error_code` 和 `job_events.metadata.errorCode`：
 

@@ -24,6 +24,12 @@ export type UpdateDeliveryRecordStatusForUserInput = {
   userId: string;
   /** 投递生命周期状态。 */
   status: DeliveryRecordRow["status"];
+  /** 邮件服务商返回的消息 ID。 */
+  providerMessageId?: string | null;
+  /** 最近一次服务商事件类型。 */
+  providerEventType?: string | null;
+  /** 最近一次服务商事件发生时间。 */
+  providerEventAt?: Date | null;
   /** 投递失败时的错误说明。 */
   errorMessage?: string | null;
   /** 成功发送时间。 */
@@ -37,6 +43,21 @@ export type FindLatestDeliveryRecordForRecordInput = {
   userId: string;
 };
 
+export type UpdateDeliveryRecordStatusByProviderMessageIdInput = {
+  /** 邮件服务商返回的消息 ID。 */
+  providerMessageId: string;
+  /** 投递生命周期状态。 */
+  status: DeliveryRecordRow["status"];
+  /** 最近一次服务商事件类型。 */
+  providerEventType: string;
+  /** 最近一次服务商事件发生时间。 */
+  providerEventAt: Date;
+  /** 投递失败或延迟原因。 */
+  errorMessage?: string | null;
+  /** 成功发送或送达时间。 */
+  sentAt?: Date | null;
+};
+
 export type DeliveryRecordsRepository = {
   /** 创建一条 email/webhook 投递记录，初始状态为 queued。 */
   create(input: CreateDeliveryRecordInput): Promise<DeliveryRecordRow>;
@@ -47,5 +68,9 @@ export type DeliveryRecordsRepository = {
   /** 查询指定视频记录下最新一次投递。 */
   findLatestForRecord(
     input: FindLatestDeliveryRecordForRecordInput,
+  ): Promise<DeliveryRecordRow | null>;
+  /** 根据服务商消息 ID 回写 webhook 事件状态。 */
+  updateStatusByProviderMessageId(
+    input: UpdateDeliveryRecordStatusByProviderMessageIdInput,
   ): Promise<DeliveryRecordRow | null>;
 };

@@ -62,6 +62,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 - `/api/mcp`：MCP tool gateway 模板，当前支持 `create_video_digest_job`
 - `/api/records`：创建视频任务，或读取当前用户的视频记录列表，支持 `status`、`platform`、`limit`、`offset`
 - `/api/records/[id]`：读取当前用户的一条视频记录详情
+- `/api/webhooks/resend`：接收 Resend 邮件事件，回写真实投递状态
 
 Supabase 控制台里建议把本地回调地址加入允许列表：
 
@@ -83,6 +84,14 @@ pnpm --filter web build
 当前 Dashboard 已通过 server action 调用 `@repo/video-digest-core` 创建真实任务；`/records` 和 `/records/[id]` 会读取 Supabase 中的真实 `video_records` 与最新字幕分段。`/api/mcp` 先实现最小 tool gateway，不是完整 MCP 协议实现。它接受当前登录用户 session，并调用后端模块创建一条真实 `video_records` 记录，同时写入 `job_events` 的排队事件、`usage_events` 的创建用量，并调用队列 enqueue 边界。
 
 队列实现由 `REDIS_URL` 决定：配置后使用 BullMQ 真实入队，未配置时使用 no-op 队列。
+
+Resend Webhook 需要在 Web 环境配置 `RESEND_WEBHOOK_SECRET`。在 Resend 控制台创建 endpoint 时填：
+
+```txt
+https://your-domain.com/api/webhooks/resend
+```
+
+本地调试可用 ngrok、Cloudflare Tunnel 等工具把 `localhost:3000` 暴露给 Resend。
 
 请求示例：
 

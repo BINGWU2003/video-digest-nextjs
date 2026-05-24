@@ -370,7 +370,18 @@ type DeliveryRecord = {
   userId: string;
   type: "email" | "webhook";
   targetId: string;
-  status: "queued" | "sent" | "failed";
+  providerMessageId?: string;
+  providerEventType?: string;
+  providerEventAt?: Date;
+  status:
+    | "queued"
+    | "sent"
+    | "delivered"
+    | "delivery_delayed"
+    | "bounced"
+    | "complained"
+    | "failed"
+    | "cancelled";
   errorMessage?: string;
   createdAt: Date;
   sentAt?: Date;

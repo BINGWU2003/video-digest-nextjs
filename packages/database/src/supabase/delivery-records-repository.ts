@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CreateDeliveryRecordInput,
   DeliveryRecordsRepository,
+  UpdateDeliveryRecordStatusByProviderMessageIdInput,
   UpdateDeliveryRecordStatusForUserInput,
 } from "../repositories/delivery-records.js";
 import type { DeliveryRecordRow } from "../tables.js";
@@ -15,6 +16,9 @@ type SupabaseDeliveryRecordRow = {
   summary_id: string | null;
   type: DeliveryRecordRow["type"];
   target_id: string;
+  provider_message_id: string | null;
+  provider_event_type: string | null;
+  provider_event_at: string | null;
   status: DeliveryRecordRow["status"];
   subject: string | null;
   error_message: string | null;
@@ -34,6 +38,9 @@ type SupabaseCreateDeliveryRecordInput = {
 
 type SupabaseUpdateDeliveryRecordStatusInput = {
   status: DeliveryRecordRow["status"];
+  provider_message_id?: string | null;
+  provider_event_type?: string | null;
+  provider_event_at?: string | null;
   error_message?: string | null;
   sent_at?: string | null;
 };
@@ -96,6 +103,21 @@ export function createSupabaseDeliveryRecordsRepository(
 
       return data ? mapDeliveryRecordRow(data as SupabaseDeliveryRecordRow) : null;
     },
+
+    async updateStatusByProviderMessageId(input) {
+      const { data, error } = await client
+        .from("delivery_records")
+        .update(toSupabaseProviderStatusInput(input))
+        .eq("provider_message_id", input.providerMessageId)
+        .select("*")
+        .maybeSingle();
+
+      if (error) {
+        throw new DatabaseQueryError("同步投递 webhook 状态失败。", error);
+      }
+
+      return data ? mapDeliveryRecordRow(data as SupabaseDeliveryRecordRow) : null;
+    },
   };
 }
 
@@ -120,6 +142,18 @@ function toSupabaseUpdateStatusInput(
     status: input.status,
   };
 
+  if (input.providerMessageId !== undefined) {
+    updateInput.provider_message_id = input.providerMessageId;
+  }
+
+  if (input.providerEventType !== undefined) {
+    updateInput.provider_event_type = input.providerEventType;
+  }
+
+  if (input.providerEventAt !== undefined) {
+    updateInput.provider_event_at = input.providerEventAt?.toISOString() ?? null;
+  }
+
   if (input.errorMessage !== undefined) {
     updateInput.error_message = input.errorMessage;
   }
@@ -131,6 +165,18 @@ function toSupabaseUpdateStatusInput(
   return updateInput;
 }
 
+function toSupabaseProviderStatusInput(
+  input: UpdateDeliveryRecordStatusByProviderMessageIdInput,
+): SupabaseUpdateDeliveryRecordStatusInput {
+  return {
+    error_message: input.errorMessage,
+    provider_event_at: input.providerEventAt.toISOString(),
+    provider_event_type: input.providerEventType,
+    sent_at: input.sentAt?.toISOString() ?? undefined,
+    status: input.status,
+  };
+}
+
 function mapDeliveryRecordRow(row: SupabaseDeliveryRecordRow): DeliveryRecordRow {
   return {
     id: row.id,
@@ -139,6 +185,11 @@ function mapDeliveryRecordRow(row: SupabaseDeliveryRecordRow): DeliveryRecordRow
     summaryId: row.summary_id,
     type: row.type,
     targetId: row.target_id,
+    providerMessageId: row.provider_message_id,
+    providerEventType: row.provider_event_type,
+    providerEventAt: row.provider_event_at
+      ? new Date(row.provider_event_at)
+      : null,
     status: row.status,
     subject: row.subject,
     errorMessage: row.error_message,

@@ -19,7 +19,7 @@ export type VideoRecord = {
   completedAt?: string;
   duration: string;
   transcriptSource: "手动字幕" | "自动字幕" | "音频转写";
-  deliveryStatus: "未发送" | "排队中" | "已发送" | "发送失败";
+  deliveryStatus: "未发送" | "排队中" | "已提交服务商" | "发送失败";
   createdBy: string;
   summary: {
     short: string;
@@ -58,7 +58,7 @@ export const records: VideoRecord[] = [
     completedAt: "2026-05-20 13:48",
     duration: "28 分 14 秒",
     transcriptSource: "手动字幕",
-    deliveryStatus: "已发送",
+    deliveryStatus: "已提交服务商",
     createdBy: "来自网站创建",
     summary: {
       short:
@@ -187,7 +187,7 @@ export const records: VideoRecord[] = [
     completedAt: "2026-05-18 10:18",
     duration: "35 分 33 秒",
     transcriptSource: "音频转写",
-    deliveryStatus: "已发送",
+    deliveryStatus: "已提交服务商",
     createdBy: "由定时任务创建",
     summary: {
       short:

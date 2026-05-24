@@ -354,6 +354,9 @@ async function deliverSummaryEmail(
       userId: input.record.userId,
       status: "sent",
       errorMessage: null,
+      providerEventAt: sentAt,
+      providerEventType: "email.sent",
+      providerMessageId: deliveryResult.providerMessageId,
       sentAt,
     });
 
@@ -399,6 +402,8 @@ async function deliverSummaryEmail(
       userId: input.record.userId,
       status: "failed",
       errorMessage: toErrorMessage(caught),
+      providerEventAt: getNow(dependencies),
+      providerEventType: "email.failed",
       sentAt: null,
     });
 

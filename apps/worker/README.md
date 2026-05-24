@@ -29,6 +29,7 @@ OPENAI_API_KEY=sk_xxx
 OPENAI_SUMMARY_MODEL=deepseek-v4-flash
 RESEND_API_KEY=re_xxx
 RESEND_FROM_EMAIL="Video Digest <digest@example.com>"
+WEB_APP_URL=http://localhost:3000
 ```
 
 开发模式会自动读取 `apps/worker/.env.local`。也可以直接通过系统环境变量注入同名配置。
@@ -46,6 +47,8 @@ OPENAI_SUMMARY_MAX_TOKENS=4000
 ```
 
 邮件投递使用 Resend HTTP API。`RESEND_API_KEY` 和 `RESEND_FROM_EMAIL` 只在 `summary_and_email` 或 `sendEmail=true` 任务进入投递阶段时需要；发件地址必须来自 Resend 已验证域名。
+
+`WEB_APP_URL` 可选。配置后摘要邮件会附带站内记录链接，例如 `https://your-app.example.com/records/{recordId}`；不配置时邮件仍会附带源视频链接。
 
 本地开发如需让 worker 和 yt-dlp 走代理，可以额外配置：
 

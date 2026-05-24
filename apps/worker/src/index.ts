@@ -100,6 +100,7 @@ export function startWorker(config = readWorkerConfig()): VideoDigestWorkerHandl
           transcriptsRepository,
           usageEventsRepository,
           videoRecordsRepository,
+          webAppUrl: process.env.WEB_APP_URL,
         },
         payload,
         context,

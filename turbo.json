@@ -19,7 +19,8 @@
     "RESEND_FROM_EMAIL",
     "RESEND_WEBHOOK_SECRET",
     "SUPABASE_SERVICE_ROLE_KEY",
-    "SUPABASE_URL"
+    "SUPABASE_URL",
+    "WEB_APP_URL"
   ],
   "tasks": {
     "build": {

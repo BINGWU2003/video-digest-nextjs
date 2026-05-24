@@ -61,6 +61,7 @@ async function main() {
   checkEnv(workerEnv, "RESEND_FROM_EMAIL", "apps/worker/.env.local", {
     allowMissing: true,
   });
+  checkOptionalUrlEnv(workerEnv, "WEB_APP_URL", "apps/worker/.env.local");
 
   section("Services");
   await checkRedis(
@@ -142,6 +143,36 @@ function checkOptionalNumberEnv(env, key, label) {
       Number.isSafeInteger(parsed) && parsed > 0
         ? "configured"
         : "must be a positive integer",
+    required: false,
+  });
+}
+
+function checkOptionalUrlEnv(env, key, label) {
+  const value = env[key];
+
+  if (!value) {
+    addCheck({
+      ok: true,
+      label: `${label} ${key}`,
+      detail: "not set",
+      required: false,
+    });
+    return;
+  }
+
+  let valid = false;
+
+  try {
+    const parsedUrl = new URL(value);
+    valid = parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:";
+  } catch {
+    valid = false;
+  }
+
+  addCheck({
+    ok: valid && !isPlaceholder(value),
+    label: `${label} ${key}`,
+    detail: valid ? "configured" : "not a valid URL",
     required: false,
   });
 }

@@ -99,6 +99,14 @@ describe("processVideoDigestJob", () => {
     assert.equal(dependencies.updatedEmailLastSentAt.length, 1);
     assert.equal(dependencies.createdUsageEvents.length, 1);
     assert.equal(dependencies.emailSends.length, 1);
+    assert.equal(dependencies.emailSends[0].subject, "你的视频摘要已生成");
+    assert.match(
+      dependencies.emailSends[0].text,
+      /查看完整摘要：http:\/\/localhost:3000\/records\/22222222-2222-4222-8222-222222222222/u,
+    );
+    assert.match(dependencies.emailSends[0].text, /- Point/u);
+    assert.doesNotMatch(dependencies.emailSends[0].html, /<pre/u);
+    assert.match(dependencies.emailSends[0].html, /查看完整摘要/u);
     assert.equal(dependencies.records[0].status, "completed");
   });
 
@@ -556,6 +564,7 @@ function createDependencies(options = {}) {
         return nextRecord;
       },
     },
+    webAppUrl: options.webAppUrl ?? "http://localhost:3000",
   };
 }
 

@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
+  DeleteEmailAddressForUserInput,
   EnsureVerifiedDefaultEmailAddressForUserInput,
   EmailAddressesRepository,
+  RequestEmailAddressVerificationForUserInput,
   SetDefaultVerifiedEmailAddressForUserInput,
   UpdateEmailAddressLastSentAtInput,
 } from "../repositories/email-addresses.js";
@@ -32,6 +34,16 @@ type SupabaseEnsureVerifiedDefaultEmailAddressInput = {
   status: "verified";
   user_id: string;
   verified_at: string;
+};
+
+type SupabaseRequestEmailAddressVerificationInput = {
+  email: string;
+  is_default: false;
+  status: "pending";
+  user_id: string;
+  verification_sent_at: string;
+  verification_token_hash: string;
+  verified_at: null;
 };
 
 export function createSupabaseEmailAddressesRepository(
@@ -112,6 +124,65 @@ export function createSupabaseEmailAddressesRepository(
       return mapEmailAddressRow(data as SupabaseEmailAddressRow);
     },
 
+    async requestVerificationForUser(input) {
+      const existingEmailAddress = await findEmailAddressByEmail(client, input);
+
+      if (existingEmailAddress?.status === "verified") {
+        return existingEmailAddress;
+      }
+
+      if (existingEmailAddress) {
+        const { data, error } = await client
+          .from("email_addresses")
+          .update(toSupabaseRequestVerificationUpdateInput(input))
+          .eq("id", existingEmailAddress.id)
+          .eq("user_id", input.userId)
+          .select("*")
+          .single();
+
+        if (error) {
+          throw new DatabaseQueryError("更新邮箱验证请求失败。", error);
+        }
+
+        return mapEmailAddressRow(data as SupabaseEmailAddressRow);
+      }
+
+      const { data, error } = await client
+        .from("email_addresses")
+        .insert(toSupabaseRequestVerificationInput(input))
+        .select("*")
+        .single();
+
+      if (error) {
+        throw new DatabaseQueryError("创建邮箱验证请求失败。", error);
+      }
+
+      return mapEmailAddressRow(data as SupabaseEmailAddressRow);
+    },
+
+    async verifyForUser(input) {
+      const { data, error } = await client
+        .from("email_addresses")
+        .update({
+          status: "verified",
+          verification_token_hash: null,
+          verified_at: input.verifiedAt.toISOString(),
+        })
+        .eq("id", input.id)
+        .eq("user_id", input.userId)
+        .eq("status", "pending")
+        .eq("verification_token_hash", input.verificationTokenHash)
+        .gte("verification_sent_at", input.verificationSentAfter.toISOString())
+        .select("*")
+        .maybeSingle();
+
+      if (error) {
+        throw new DatabaseQueryError("验证邮箱失败。", error);
+      }
+
+      return data ? mapEmailAddressRow(data as SupabaseEmailAddressRow) : null;
+    },
+
     async setDefaultVerifiedForUser(input) {
       const targetEmailAddress = await findVerifiedEmailAddressById(client, input);
 
@@ -135,6 +206,20 @@ export function createSupabaseEmailAddressesRepository(
       }
 
       return mapEmailAddressRow(data as SupabaseEmailAddressRow);
+    },
+
+    async deleteForUser(input) {
+      await assertEmailAddressBelongsToUser(client, input);
+
+      const { error } = await client
+        .from("email_addresses")
+        .delete()
+        .eq("id", input.id)
+        .eq("user_id", input.userId);
+
+      if (error) {
+        throw new DatabaseQueryError("删除邮箱失败。", error);
+      }
     },
 
     async updateLastSentAt(input) {
@@ -177,7 +262,9 @@ async function clearDefaultEmailAddress(client: SupabaseClient, userId: string) 
 
 async function findEmailAddressByEmail(
   client: SupabaseClient,
-  input: EnsureVerifiedDefaultEmailAddressForUserInput,
+  input:
+    | EnsureVerifiedDefaultEmailAddressForUserInput
+    | RequestEmailAddressVerificationForUserInput,
 ) {
   const { data, error } = await client
     .from("email_addresses")
@@ -191,6 +278,26 @@ async function findEmailAddressByEmail(
   }
 
   return data ? mapEmailAddressRow(data as SupabaseEmailAddressRow) : null;
+}
+
+async function assertEmailAddressBelongsToUser(
+  client: SupabaseClient,
+  input: DeleteEmailAddressForUserInput,
+) {
+  const { data, error } = await client
+    .from("email_addresses")
+    .select("id")
+    .eq("id", input.id)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new DatabaseQueryError("查询邮箱失败。", error);
+  }
+
+  if (!data) {
+    throw new DatabaseQueryError("删除邮箱失败：邮箱不存在。", null);
+  }
 }
 
 async function findVerifiedEmailAddressById(
@@ -222,6 +329,32 @@ function toSupabaseEnsureVerifiedDefaultInput(
     status: "verified",
     user_id: input.userId,
     verified_at: verifiedAt.toISOString(),
+  };
+}
+
+function toSupabaseRequestVerificationInput(
+  input: RequestEmailAddressVerificationForUserInput,
+): SupabaseRequestEmailAddressVerificationInput {
+  return {
+    email: input.email,
+    is_default: false,
+    status: "pending",
+    user_id: input.userId,
+    verification_sent_at: input.verificationSentAt.toISOString(),
+    verification_token_hash: input.verificationTokenHash,
+    verified_at: null,
+  };
+}
+
+function toSupabaseRequestVerificationUpdateInput(
+  input: RequestEmailAddressVerificationForUserInput,
+): Omit<SupabaseRequestEmailAddressVerificationInput, "email" | "user_id"> {
+  return {
+    is_default: false,
+    status: "pending",
+    verification_sent_at: input.verificationSentAt.toISOString(),
+    verification_token_hash: input.verificationTokenHash,
+    verified_at: null,
   };
 }
 

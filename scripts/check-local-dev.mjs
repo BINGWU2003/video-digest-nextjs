@@ -33,6 +33,13 @@ async function main() {
   checkEnv(webEnv, "RESEND_WEBHOOK_SECRET", "apps/web/.env.local", {
     allowMissing: true,
   });
+  checkEnv(webEnv, "RESEND_API_KEY", "apps/web/.env.local", {
+    allowMissing: true,
+  });
+  checkEnv(webEnv, "RESEND_FROM_EMAIL", "apps/web/.env.local", {
+    allowMissing: true,
+  });
+  checkOptionalUrlEnv(webEnv, "WEB_APP_URL", "apps/web/.env.local");
   checkEnv(webEnv, "REDIS_URL", "apps/web/.env.local");
 
   section("Worker env");

@@ -93,6 +93,16 @@ https://your-domain.com/api/webhooks/resend
 
 本地调试可用 ngrok、Cloudflare Tunnel 等工具把 `localhost:3000` 暴露给 Resend。
 
+邮箱验证邮件也由 Web 服务通过 Resend 发送，需要配置：
+
+```txt
+RESEND_API_KEY=re_xxx
+RESEND_FROM_EMAIL="Video Digest <digest@example.com>"
+WEB_APP_URL=http://localhost:3000
+```
+
+`WEB_APP_URL` 可选；配置后验证邮件会使用它生成点击链接，生产环境建议填正式 Web 域名。
+
 请求示例：
 
 ```json

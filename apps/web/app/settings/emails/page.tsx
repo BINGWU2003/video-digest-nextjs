@@ -15,8 +15,10 @@ import {
   PanelHeader,
   StatusBadge,
 } from "../../_components/app-shell";
-import { MailIcon } from "../../_components/icons";
+import { MailIcon, TrashIcon } from "../../_components/icons";
 import {
+  deleteEmailAddressAction,
+  requestEmailVerificationAction,
   setDefaultEmailAddressAction,
   useLoginEmailAsDefaultAction,
 } from "./actions";
@@ -83,24 +85,47 @@ export default async function EmailSettingsPage({
 
         <Panel>
           <PanelHeader
-            title="当前 MVP"
-            description="先支持登录邮箱一键接入，后续再补完整验证邮件流程。"
+            title="添加收件人"
+            description="验证通过后才能作为摘要投递邮箱。"
           />
-          <div className="grid gap-4 p-5">
+          <div className="grid gap-5 p-5">
+            <form action={requestEmailVerificationAction} className="grid gap-3">
+              <div className="grid gap-2">
+                <label
+                  htmlFor="email"
+                  className="text-sm font-medium text-slate-800"
+                >
+                  邮箱地址
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="name@example.com"
+                  className="h-10 rounded-md border border-slate-300 px-3 text-sm outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+              <Button type="submit">
+                <MailIcon />
+                发送验证邮件
+              </Button>
+            </form>
+
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-medium text-slate-900">
                 {user.email ?? "当前账号没有邮箱"}
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                这个邮箱来自 Supabase Auth 登录身份。点击后会创建或更新为 verified，并设为默认投递地址。
+                本地开发时也可以直接把登录邮箱设为默认已验证收件邮箱。
               </p>
+              <form action={useLoginEmailAsDefaultAction} className="mt-3">
+                <Button disabled={!user.email} type="submit" variant="outline">
+                  <MailIcon />
+                  使用登录邮箱
+                </Button>
+              </form>
             </div>
-            <form action={useLoginEmailAsDefaultAction}>
-              <Button disabled={!user.email} type="submit">
-                <MailIcon />
-                设为默认收件邮箱
-              </Button>
-            </form>
           </div>
         </Panel>
       </div>
@@ -139,11 +164,25 @@ function EmailAddressItem({
           </form>
         ) : null}
         {emailAddress.status !== "verified" ? (
-          <Button disabled variant="outline" size="sm">
-            <MailIcon />
-            待验证
-          </Button>
+          <form action={requestEmailVerificationAction}>
+            <input name="email" type="hidden" value={emailAddress.email} />
+            <Button variant="outline" size="sm" type="submit">
+              <MailIcon />
+              重新发送
+            </Button>
+          </form>
         ) : null}
+        <form action={deleteEmailAddressAction}>
+          <input name="id" type="hidden" value={emailAddress.id} />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            type="submit"
+            aria-label={`删除 ${emailAddress.email}`}
+          >
+            <TrashIcon />
+          </Button>
+        </form>
       </div>
     </div>
   );

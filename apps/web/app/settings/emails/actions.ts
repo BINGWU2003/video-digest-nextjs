@@ -23,6 +23,8 @@ const requestEmailVerificationFormSchema = z.object({
   email: z.email().trim().toLowerCase(),
 });
 
+const verificationResendCooldownMs = 60 * 1000;
+
 export async function useLoginEmailAsDefaultAction() {
   const user = await requireUser();
 
@@ -84,6 +86,18 @@ export async function requestEmailVerificationAction(formData: FormData) {
     const emailAddressesRepository = createSupabaseEmailAddressesRepository(
       createAdminClient(),
     );
+    const existingEmailAddress = await findEmailAddressForUser(
+      emailAddressesRepository,
+      user.id,
+      parsedInput.data.email,
+    );
+
+    if (isVerificationResendLimited(existingEmailAddress, verificationSentAt)) {
+      redirect(
+        `/settings/emails?message=${encodeURIComponent("验证邮件已发送，请 60 秒后再试。")}`,
+      );
+    }
+
     const emailAddress =
       await emailAddressesRepository.requestVerificationForUser({
         email: parsedInput.data.email,
@@ -168,15 +182,43 @@ export async function deleteEmailAddressAction(formData: FormData) {
     );
   }
 
+  let resultMessage = "邮箱已删除。";
+
   try {
     const emailAddressesRepository = createSupabaseEmailAddressesRepository(
       createAdminClient(),
     );
+    const emailAddresses = await emailAddressesRepository.listForUser({
+      userId: user.id,
+    });
+    const deletingEmailAddress = emailAddresses.find(
+      (emailAddress) => emailAddress.id === parsedInput.data.id,
+    );
+    const nextDefaultEmailAddress = deletingEmailAddress?.isDefault
+      ? emailAddresses.find(
+          (emailAddress) =>
+            emailAddress.id !== deletingEmailAddress.id &&
+            emailAddress.status === "verified",
+        )
+      : null;
+
+    if (deletingEmailAddress?.isDefault) {
+      resultMessage = nextDefaultEmailAddress
+        ? `邮箱已删除，已自动将 ${nextDefaultEmailAddress.email} 设为默认收件邮箱。`
+        : "默认邮箱已删除，邮件投递前请重新设置默认收件邮箱。";
+    }
 
     await emailAddressesRepository.deleteForUser({
       id: parsedInput.data.id,
       userId: user.id,
     });
+
+    if (nextDefaultEmailAddress) {
+      await emailAddressesRepository.setDefaultVerifiedForUser({
+        id: nextDefaultEmailAddress.id,
+        userId: user.id,
+      });
+    }
   } catch (caught) {
     if (isMissingDatabaseSchemaError(caught)) {
       redirect(
@@ -188,8 +230,41 @@ export async function deleteEmailAddressAction(formData: FormData) {
   }
 
   revalidatePath("/settings/emails");
+
   redirect(
-    `/settings/emails?message=${encodeURIComponent("邮箱已删除。")}`,
+    `/settings/emails?message=${encodeURIComponent(resultMessage)}`,
+  );
+}
+
+async function findEmailAddressForUser(
+  emailAddressesRepository: ReturnType<typeof createSupabaseEmailAddressesRepository>,
+  userId: string,
+  email: string,
+) {
+  const emailAddresses = await emailAddressesRepository.listForUser({ userId });
+
+  return (
+    emailAddresses.find(
+      (emailAddress) => emailAddress.email.toLowerCase() === email,
+    ) ?? null
+  );
+}
+
+function isVerificationResendLimited(
+  emailAddress: Awaited<ReturnType<typeof findEmailAddressForUser>>,
+  now: Date,
+) {
+  if (
+    !emailAddress ||
+    emailAddress.status !== "pending" ||
+    !emailAddress.verificationSentAt
+  ) {
+    return false;
+  }
+
+  return (
+    now.getTime() - emailAddress.verificationSentAt.getTime() <
+    verificationResendCooldownMs
   );
 }
 

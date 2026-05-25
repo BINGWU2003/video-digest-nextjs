@@ -90,8 +90,9 @@ export default async function RecordDetailPage({
     notFound();
   }
 
-  const [deliveryRecord, events, transcript, summary] = await Promise.all([
-    deliveryRecordsRepository.findLatestForRecord({
+  const [deliveryHistory, events, transcript, summary] = await Promise.all([
+    deliveryRecordsRepository.listForRecord({
+      limit: 5,
       recordId: record.id,
       userId: user.id,
     }),
@@ -109,6 +110,7 @@ export default async function RecordDetailPage({
       userId: user.id,
     }),
   ]);
+  const deliveryRecord = deliveryHistory[0] ?? null;
 
   const title = displayRecordTitle(record);
   const activeStep = resolveActiveStep(record.status);
@@ -334,7 +336,11 @@ export default async function RecordDetailPage({
             </dl>
           </Panel>
 
-          <DeliveryPanel record={record} deliveryRecord={deliveryRecord} />
+          <DeliveryPanel
+            record={record}
+            deliveryHistory={deliveryHistory}
+            deliveryRecord={deliveryRecord}
+          />
 
           <Panel>
             <PanelHeader title="处理时间线" />
@@ -403,9 +409,11 @@ export default async function RecordDetailPage({
 
 function DeliveryPanel({
   record,
+  deliveryHistory,
   deliveryRecord,
 }: {
   record: { sendEmail: boolean; outputMode: string };
+  deliveryHistory: DeliveryRecordRow[];
   deliveryRecord: DeliveryRecordRow | null;
 }) {
   if (!record.sendEmail && record.outputMode !== "summary_and_email") {
@@ -441,7 +449,7 @@ function DeliveryPanel({
     <Panel>
       <PanelHeader
         title="邮件投递"
-        description="展示 Resend webhook 同步回来的真实投递状态。"
+        description={`${deliveryHistory.length} 条最近投递历史`}
         action={
           <StatusBadge tone={deliveryStatusTone(deliveryRecord.status)}>
             {deliveryStatusLabels[deliveryRecord.status]}
@@ -471,8 +479,79 @@ function DeliveryPanel({
             </div>
           ))}
         </dl>
+        <div className="border-t border-slate-200 pt-4">
+          <h3 className="text-sm font-semibold text-slate-950">投递历史</h3>
+          <ol className="mt-3 grid gap-3">
+            {deliveryHistory.map((historyRecord, index) => (
+              <DeliveryHistoryItem
+                key={historyRecord.id}
+                deliveryRecord={historyRecord}
+                latest={index === 0}
+              />
+            ))}
+          </ol>
+        </div>
       </div>
     </Panel>
+  );
+}
+
+function DeliveryHistoryItem({
+  deliveryRecord,
+  latest,
+}: {
+  deliveryRecord: DeliveryRecordRow;
+  latest: boolean;
+}) {
+  return (
+    <li className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge tone={deliveryStatusTone(deliveryRecord.status)}>
+            {deliveryStatusLabels[deliveryRecord.status]}
+          </StatusBadge>
+          {latest ? <StatusBadge tone="blue">最新</StatusBadge> : null}
+        </div>
+        <time
+          dateTime={deliveryRecord.createdAt.toISOString()}
+          className="text-xs text-slate-500"
+        >
+          {formatDateTime(deliveryRecord.createdAt)}
+        </time>
+      </div>
+      <dl className="mt-3 grid gap-2 text-xs">
+        <DeliveryHistoryRow
+          label="服务商消息"
+          value={deliveryRecord.providerMessageId ?? "等待服务商返回"}
+        />
+        <DeliveryHistoryRow
+          label="服务商事件"
+          value={deliveryRecord.providerEventType ?? "等待 webhook"}
+        />
+        <DeliveryHistoryRow
+          label="最近事件"
+          value={formatOptionalDateTime(deliveryRecord.providerEventAt)}
+        />
+        {deliveryRecord.errorMessage ? (
+          <DeliveryHistoryRow label="原因" value={deliveryRecord.errorMessage} />
+        ) : null}
+      </dl>
+    </li>
+  );
+}
+
+function DeliveryHistoryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="grid gap-1 sm:grid-cols-[72px_1fr]">
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="break-all font-medium text-slate-700">{value}</dd>
+    </div>
   );
 }
 

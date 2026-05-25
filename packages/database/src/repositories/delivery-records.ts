@@ -43,6 +43,15 @@ export type FindLatestDeliveryRecordForRecordInput = {
   userId: string;
 };
 
+export type ListDeliveryRecordsForRecordInput = {
+  /** 关联的视频记录 ID。 */
+  recordId: string;
+  /** 投递所属用户 ID，来自 Supabase Auth。 */
+  userId: string;
+  /** 返回条数，默认由具体 repository 决定。 */
+  limit?: number;
+};
+
 export type ListDeliveryRecordsForUserInput = {
   /** 投递所属用户 ID，来自 Supabase Auth。 */
   userId: string;
@@ -93,6 +102,10 @@ export type DeliveryRecordsRepository = {
   findLatestForRecord(
     input: FindLatestDeliveryRecordForRecordInput,
   ): Promise<DeliveryRecordRow | null>;
+  /** 查询指定视频记录下的最近投递历史。 */
+  listForRecord(
+    input: ListDeliveryRecordsForRecordInput,
+  ): Promise<DeliveryRecordRow[]>;
   /** 查询用户最近的投递记录。 */
   listPageForUser(
     input: ListDeliveryRecordsForUserInput,

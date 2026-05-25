@@ -120,6 +120,24 @@ export function createSupabaseDeliveryRecordsRepository(
       return data ? mapDeliveryRecordRow(data as SupabaseDeliveryRecordRow) : null;
     },
 
+    async listForRecord(input) {
+      const { data, error } = await client
+        .from("delivery_records")
+        .select("*")
+        .eq("record_id", input.recordId)
+        .eq("user_id", input.userId)
+        .order("created_at", { ascending: false })
+        .limit(input.limit ?? 5);
+
+      if (error) {
+        throw new DatabaseQueryError("查询投递历史失败。", error);
+      }
+
+      return (data ?? []).map((row) =>
+        mapDeliveryRecordRow(row as SupabaseDeliveryRecordRow),
+      );
+    },
+
     async listPageForUser(input) {
       const { count, error: countError } = await client
         .from("delivery_records")

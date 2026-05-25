@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
   CreateDeliveryRecordInput,
+  DeliveryRecordListItem,
   DeliveryRecordsRepository,
   UpdateDeliveryRecordStatusByProviderMessageIdInput,
   UpdateDeliveryRecordStatusForUserInput,
@@ -24,6 +25,21 @@ type SupabaseDeliveryRecordRow = {
   error_message: string | null;
   created_at: string;
   sent_at: string | null;
+};
+
+type SupabaseDeliveryRecordWithVideoRow = SupabaseDeliveryRecordRow & {
+  video_records:
+    | {
+        id: string;
+        source_url: string;
+        title: string | null;
+      }
+    | null;
+};
+
+type SupabaseEmailAddressLookupRow = {
+  id: string;
+  email: string;
 };
 
 type SupabaseCreateDeliveryRecordInput = {
@@ -104,6 +120,64 @@ export function createSupabaseDeliveryRecordsRepository(
       return data ? mapDeliveryRecordRow(data as SupabaseDeliveryRecordRow) : null;
     },
 
+    async listPageForUser(input) {
+      const { count, error: countError } = await client
+        .from("delivery_records")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", input.userId);
+
+      if (countError) {
+        throw new DatabaseQueryError("统计投递记录列表失败。", countError);
+      }
+
+      const total = count ?? 0;
+      const limit = input.limit ?? 20;
+      const offset = input.offset ?? 0;
+
+      if (total === 0 || offset >= total) {
+        return {
+          records: [],
+          total,
+        };
+      }
+
+      const { data, error } = await client
+        .from("delivery_records")
+        .select(
+          `
+          *,
+          video_records (
+            id,
+            source_url,
+            title
+          )
+        `,
+        )
+        .eq("user_id", input.userId)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        throw new DatabaseQueryError("分页查询投递记录列表失败。", error);
+      }
+
+      const rows = (data ?? []) as SupabaseDeliveryRecordWithVideoRow[];
+      const targetEmailById = await loadTargetEmails(
+        client,
+        input.userId,
+        rows
+          .filter((row) => row.type === "email")
+          .map((row) => row.target_id),
+      );
+
+      return {
+        records: rows.map((row) =>
+          mapDeliveryRecordListItem(row, targetEmailById),
+        ),
+        total,
+      };
+    },
+
     async updateStatusByProviderMessageId(input) {
       const { data, error } = await client
         .from("delivery_records")
@@ -119,6 +193,35 @@ export function createSupabaseDeliveryRecordsRepository(
       return data ? mapDeliveryRecordRow(data as SupabaseDeliveryRecordRow) : null;
     },
   };
+}
+
+async function loadTargetEmails(
+  client: SupabaseClient,
+  userId: string,
+  targetIds: string[],
+) {
+  const uniqueTargetIds = [...new Set(targetIds)];
+
+  if (uniqueTargetIds.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const { data, error } = await client
+    .from("email_addresses")
+    .select("id,email")
+    .eq("user_id", userId)
+    .in("id", uniqueTargetIds);
+
+  if (error) {
+    throw new DatabaseQueryError("查询投递目标邮箱失败。", error);
+  }
+
+  return new Map(
+    ((data ?? []) as SupabaseEmailAddressLookupRow[]).map((row) => [
+      row.id,
+      row.email,
+    ]),
+  );
 }
 
 function toSupabaseCreateInput(
@@ -195,5 +298,23 @@ function mapDeliveryRecordRow(row: SupabaseDeliveryRecordRow): DeliveryRecordRow
     errorMessage: row.error_message,
     createdAt: new Date(row.created_at),
     sentAt: row.sent_at ? new Date(row.sent_at) : null,
+  };
+}
+
+function mapDeliveryRecordListItem(
+  row: SupabaseDeliveryRecordWithVideoRow,
+  targetEmailById: Map<string, string>,
+): DeliveryRecordListItem {
+  return {
+    deliveryRecord: mapDeliveryRecordRow(row),
+    targetEmail:
+      row.type === "email" ? (targetEmailById.get(row.target_id) ?? null) : null,
+    videoRecord: row.video_records
+      ? {
+          id: row.video_records.id,
+          sourceUrl: row.video_records.source_url,
+          title: row.video_records.title,
+        }
+      : null,
   };
 }

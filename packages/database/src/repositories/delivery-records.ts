@@ -43,6 +43,30 @@ export type FindLatestDeliveryRecordForRecordInput = {
   userId: string;
 };
 
+export type ListDeliveryRecordsForUserInput = {
+  /** 投递所属用户 ID，来自 Supabase Auth。 */
+  userId: string;
+  /** 每页数量。 */
+  limit?: number;
+  /** 分页偏移。 */
+  offset?: number;
+};
+
+export type DeliveryRecordListItem = {
+  deliveryRecord: DeliveryRecordRow;
+  targetEmail: string | null;
+  videoRecord: {
+    id: string;
+    sourceUrl: string;
+    title: string | null;
+  } | null;
+};
+
+export type DeliveryRecordPage = {
+  records: DeliveryRecordListItem[];
+  total: number;
+};
+
 export type UpdateDeliveryRecordStatusByProviderMessageIdInput = {
   /** 邮件服务商返回的消息 ID。 */
   providerMessageId: string;
@@ -69,6 +93,10 @@ export type DeliveryRecordsRepository = {
   findLatestForRecord(
     input: FindLatestDeliveryRecordForRecordInput,
   ): Promise<DeliveryRecordRow | null>;
+  /** 查询用户最近的投递记录。 */
+  listPageForUser(
+    input: ListDeliveryRecordsForUserInput,
+  ): Promise<DeliveryRecordPage>;
   /** 根据服务商消息 ID 回写 webhook 事件状态。 */
   updateStatusByProviderMessageId(
     input: UpdateDeliveryRecordStatusByProviderMessageIdInput,

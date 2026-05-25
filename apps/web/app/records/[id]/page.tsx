@@ -316,6 +316,8 @@ export default async function RecordDetailPage({
             </dl>
           </Panel>
 
+          <DeliveryPanel record={record} deliveryRecord={deliveryRecord} />
+
           <Panel>
             <PanelHeader title="处理时间线" />
             <ol className="grid gap-3 p-5">
@@ -378,6 +380,81 @@ export default async function RecordDetailPage({
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function DeliveryPanel({
+  record,
+  deliveryRecord,
+}: {
+  record: { sendEmail: boolean; outputMode: string };
+  deliveryRecord: DeliveryRecordRow | null;
+}) {
+  if (!record.sendEmail && record.outputMode !== "summary_and_email") {
+    return null;
+  }
+
+  if (!deliveryRecord) {
+    return (
+      <Panel>
+        <PanelHeader
+          title="邮件投递"
+          action={<StatusBadge tone="amber">待投递</StatusBadge>}
+        />
+        <div className="p-5 text-sm leading-6 text-slate-600">
+          任务完成摘要生成后，worker 会创建投递记录并提交到邮件服务商。
+        </div>
+      </Panel>
+    );
+  }
+
+  const detailRows = [
+    ["投递状态", deliveryStatusLabels[deliveryRecord.status]],
+    ["邮件主题", deliveryRecord.subject ?? "未记录"],
+    ["投递记录", deliveryRecord.id],
+    ["服务商消息", deliveryRecord.providerMessageId ?? "等待服务商返回"],
+    ["服务商事件", deliveryRecord.providerEventType ?? "等待 webhook"],
+    ["创建时间", formatDateTime(deliveryRecord.createdAt)],
+    ["提交/送达时间", formatOptionalDateTime(deliveryRecord.sentAt)],
+    ["最近事件时间", formatOptionalDateTime(deliveryRecord.providerEventAt)],
+  ];
+
+  return (
+    <Panel>
+      <PanelHeader
+        title="邮件投递"
+        description="展示 Resend webhook 同步回来的真实投递状态。"
+        action={
+          <StatusBadge tone={deliveryStatusTone(deliveryRecord.status)}>
+            {deliveryStatusLabels[deliveryRecord.status]}
+          </StatusBadge>
+        }
+      />
+      <div className="grid gap-4 p-5">
+        {deliveryRecord.errorMessage ? (
+          <div
+            className={`rounded-lg border p-4 text-sm leading-6 ${
+              deliveryRecord.status === "delivery_delayed"
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {deliveryRecord.errorMessage}
+          </div>
+        ) : null}
+        <dl className="grid gap-3 text-sm">
+          {detailRows.map(([label, value]) => (
+            <div
+              key={label}
+              className="grid gap-1 sm:grid-cols-[104px_1fr] sm:items-start"
+            >
+              <dt className="text-slate-500">{label}</dt>
+              <dd className="break-all font-medium text-slate-800">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </Panel>
   );
 }
 
@@ -623,6 +700,33 @@ function formatDeliveryStatus(
   };
 
   return labels[deliveryRecord.status];
+}
+
+const deliveryStatusLabels: Record<DeliveryRecordRow["status"], string> = {
+  bounced: "退信",
+  cancelled: "已取消",
+  complained: "投诉",
+  delivered: "已送达",
+  delivery_delayed: "投递延迟",
+  failed: "投递失败",
+  queued: "排队中",
+  sent: "已提交服务商",
+};
+
+function deliveryStatusTone(
+  status: DeliveryRecordRow["status"],
+): "blue" | "green" | "red" | "amber" | "slate" {
+  if (status === "delivered") return "green";
+  if (status === "bounced" || status === "complained" || status === "failed") {
+    return "red";
+  }
+  if (status === "queued" || status === "delivery_delayed") return "amber";
+  if (status === "cancelled") return "slate";
+  return "blue";
+}
+
+function formatOptionalDateTime(value: Date | null) {
+  return value ? formatDateTime(value) : "暂无";
 }
 
 function formatSegmentTime(segment: TranscriptSegmentRow) {

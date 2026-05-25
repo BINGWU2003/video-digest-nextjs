@@ -8,6 +8,7 @@ import {
   createSupabaseUsageEventsRepository,
   createSupabaseVideoRecordsRepository,
   isMissingDatabaseSchemaError,
+  type DeliveryRecordRow,
 } from "@repo/database";
 import {
   cancelVideoDigestJob,
@@ -37,6 +38,14 @@ const cancelVideoDigestJobFormSchema = z.object({
 const redeliverSummaryEmailFormSchema = z.object({
   id: z.uuid(),
 });
+
+const redeliveryCooldownMs = 60 * 1000;
+const redeliverableDeliveryStatuses = [
+  "bounced",
+  "cancelled",
+  "delivery_delayed",
+  "failed",
+] satisfies DeliveryRecordRow["status"][];
 
 export async function cancelVideoDigestJobAction(formData: FormData) {
   const user = await requireUser();
@@ -112,19 +121,24 @@ export async function redeliverSummaryEmailAction(formData: FormData) {
       createSupabaseDeliveryRecordsRepository(supabase);
     const jobEventsRepository = createSupabaseJobEventsRepository(supabase);
     const usageEventsRepository = createSupabaseUsageEventsRepository(supabase);
-    const [record, summary, emailAddress] = await Promise.all([
-      videoRecordsRepository.findByIdForUser({
-        id: recordId,
-        userId: user.id,
-      }),
-      summariesRepository.findLatestForRecord({
-        recordId,
-        userId: user.id,
-      }),
-      emailAddressesRepository.findDefaultVerifiedForUser({
-        userId: user.id,
-      }),
-    ]);
+    const [record, summary, emailAddress, latestDeliveryRecord] =
+      await Promise.all([
+        videoRecordsRepository.findByIdForUser({
+          id: recordId,
+          userId: user.id,
+        }),
+        summariesRepository.findLatestForRecord({
+          recordId,
+          userId: user.id,
+        }),
+        emailAddressesRepository.findDefaultVerifiedForUser({
+          userId: user.id,
+        }),
+        deliveryRecordsRepository.findLatestForRecord({
+          recordId,
+          userId: user.id,
+        }),
+      ]);
 
     if (!record) {
       redirect("/records");
@@ -146,6 +160,15 @@ export async function redeliverSummaryEmailAction(formData: FormData) {
           "未找到默认已验证收件邮箱，请先在邮箱设置中配置默认收件人。",
         ),
       );
+    }
+
+    const redeliveryBlockMessage = getRedeliveryBlockMessage(
+      latestDeliveryRecord,
+      new Date(),
+    );
+
+    if (redeliveryBlockMessage) {
+      redirect(buildRecordDeliveryRedirect(recordId, redeliveryBlockMessage));
     }
 
     const subject = createSummaryEmailSubject();
@@ -259,6 +282,44 @@ function buildRecordDeliveryRedirect(recordId: string, message: string) {
 
 function toErrorMessage(caught: unknown) {
   return caught instanceof Error ? caught.message : String(caught);
+}
+
+function getRedeliveryBlockMessage(
+  latestDeliveryRecord: DeliveryRecordRow | null,
+  now: Date,
+) {
+  if (!latestDeliveryRecord) {
+    return null;
+  }
+
+  if (
+    latestDeliveryRecord.status === "queued" ||
+    latestDeliveryRecord.status === "sent"
+  ) {
+    return "最近一次邮件已提交服务商，请等待 webhook 回写真实投递状态后再操作。";
+  }
+
+  if (latestDeliveryRecord.status === "delivered") {
+    return "最近一次邮件已送达。为避免重复打扰收件人，暂不支持直接重复发送。";
+  }
+
+  if (latestDeliveryRecord.status === "complained") {
+    return "收件方已标记投诉，系统不会继续向该邮箱重新投递。";
+  }
+
+  if (!redeliverableDeliveryStatuses.includes(latestDeliveryRecord.status)) {
+    return "当前投递状态暂不支持重新投递。";
+  }
+
+  const remainingCooldownMs =
+    redeliveryCooldownMs -
+    (now.getTime() - latestDeliveryRecord.createdAt.getTime());
+
+  if (remainingCooldownMs > 0) {
+    return `重新投递过于频繁，请 ${Math.ceil(remainingCooldownMs / 1000)} 秒后再试。`;
+  }
+
+  return null;
 }
 
 export async function retryVideoDigestJobAction(formData: FormData) {

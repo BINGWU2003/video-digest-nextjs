@@ -61,6 +61,8 @@ const timelineSteps: Array<{
   { label: "完成", statuses: ["completed"] },
 ];
 
+const redeliveryCooldownMs = 60 * 1000;
+
 export default async function RecordDetailPage({
   params,
   searchParams,
@@ -114,6 +116,7 @@ export default async function RecordDetailPage({
   const retryable = isRetryableStatus(record.status);
   const failureHint = getFailureHint(record.errorCode);
   const reusedExistingRecord = resolvedSearchParams?.reused === "1";
+  const deliveryAction = getDeliveryActionState(summary, deliveryRecord);
 
   return (
     <AppShell current="/records" userEmail={user.email}>
@@ -129,9 +132,14 @@ export default async function RecordDetailPage({
             </Button>
             <form action={redeliverSummaryEmailAction}>
               <input name="id" type="hidden" value={record.id} />
-              <Button disabled={!summary} type="submit" variant="outline">
+              <Button
+                disabled={deliveryAction.disabled}
+                title={deliveryAction.reason}
+                type="submit"
+                variant="outline"
+              >
                 <MailIcon />
-                重新投递
+                {deliveryAction.label}
               </Button>
             </form>
             <form action={retryVideoDigestJobAction}>
@@ -641,6 +649,69 @@ function isCancellableStatus(status: VideoRecordStatus) {
     status === "summarizing" ||
     status === "delivering"
   );
+}
+
+function getDeliveryActionState(
+  summary: SummaryRow | null,
+  deliveryRecord: DeliveryRecordRow | null,
+) {
+  if (!summary) {
+    return {
+      disabled: true,
+      label: "等待摘要",
+      reason: "摘要生成后才能发送邮件。",
+    };
+  }
+
+  if (!deliveryRecord) {
+    return {
+      disabled: false,
+      label: "发送邮件",
+      reason: "使用当前默认已验证邮箱发送这份摘要。",
+    };
+  }
+
+  if (deliveryRecord.status === "queued" || deliveryRecord.status === "sent") {
+    return {
+      disabled: true,
+      label: "等待回执",
+      reason: "最近一次邮件已提交服务商，请等待 webhook 回写真实状态。",
+    };
+  }
+
+  if (deliveryRecord.status === "delivered") {
+    return {
+      disabled: true,
+      label: "已送达",
+      reason: "最近一次邮件已送达。为避免重复打扰收件人，暂不支持直接重复发送。",
+    };
+  }
+
+  if (deliveryRecord.status === "complained") {
+    return {
+      disabled: true,
+      label: "停止投递",
+      reason: "收件方已标记投诉，系统不会继续向该邮箱重新投递。",
+    };
+  }
+
+  const cooldownRemainingMs =
+    redeliveryCooldownMs -
+    (Date.now() - deliveryRecord.createdAt.getTime());
+
+  if (cooldownRemainingMs > 0) {
+    return {
+      disabled: true,
+      label: "稍后再试",
+      reason: `重新投递过于频繁，请 ${Math.ceil(cooldownRemainingMs / 1000)} 秒后再试。`,
+    };
+  }
+
+  return {
+    disabled: false,
+    label: "重新投递",
+    reason: "重新提交摘要邮件到当前默认已验证邮箱。",
+  };
 }
 
 function getFailureHint(errorCode: string | null) {

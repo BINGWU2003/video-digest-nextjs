@@ -1,11 +1,20 @@
 import {
+  createSupabaseDeliveryRecordsRepository,
   createSupabaseJobEventsRepository,
+  createSupabaseSummariesRepository,
+  createSupabaseTranscriptsRepository,
   createSupabaseUsageEventsRepository,
   createSupabaseVideoRecordsRepository,
   isMissingDatabaseSchemaError,
 } from "@repo/database";
-import { createVideoDigestJobInputSchema } from "@repo/job-contracts";
-import { createVideoDigestJobTool } from "@repo/mcp-tools";
+import {
+  createVideoDigestJobInputSchema,
+  getVideoDigestRecordInputSchema,
+} from "@repo/job-contracts";
+import {
+  createVideoDigestJobTool,
+  getVideoDigestRecordTool,
+} from "@repo/mcp-tools";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -17,7 +26,7 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 const toolRequestSchema = z.object({
-  tool: z.literal("create_video_digest_job"),
+  tool: z.enum(["create_video_digest_job", "get_video_digest_record"]),
   input: z.unknown(),
 });
 
@@ -46,18 +55,7 @@ export async function POST(request: NextRequest) {
     return jsonError("MCP tool 请求格式无效。", 400);
   }
 
-  const parsedInput = createVideoDigestJobInputSchema.safeParse(
-    parsedBody.data.input,
-  );
-
-  if (!parsedInput.success) {
-    return jsonError(
-      parsedInput.error.issues[0]?.message ?? "Tool input 无效。",
-      400,
-    );
-  }
-
-  const tool = createVideoDigestJobTool;
+  const tool = getTool(parsedBody.data.tool);
   const actor = {
     type: "user" as const,
     id: claims.sub,
@@ -66,17 +64,13 @@ export async function POST(request: NextRequest) {
   };
   const supabaseAdmin = createAdminClient();
 
-  const handler = tool.createHandler({
-    videoRecordsRepository:
-      createSupabaseVideoRecordsRepository(supabaseAdmin),
-    jobEventsRepository: createSupabaseJobEventsRepository(supabaseAdmin),
-    usageEventsRepository:
-      createSupabaseUsageEventsRepository(supabaseAdmin),
-    videoDigestQueue: getVideoDigestQueue(),
-  });
-
   try {
-    const result = await handler(parsedInput.data, { actor });
+    const result = await executeTool({
+      actor,
+      input: parsedBody.data.input,
+      supabaseAdmin,
+      tool: parsedBody.data.tool,
+    });
 
     return NextResponse.json({
       tool: parsedBody.data.tool,
@@ -94,6 +88,73 @@ export async function POST(request: NextRequest) {
       caught instanceof Error ? caught.message : "创建视频摘要任务失败。";
 
     return jsonError(message, 400);
+  }
+}
+
+function getTool(toolName: z.infer<typeof toolRequestSchema>["tool"]) {
+  return toolName === "create_video_digest_job"
+    ? createVideoDigestJobTool
+    : getVideoDigestRecordTool;
+}
+
+async function executeTool({
+  actor,
+  input,
+  supabaseAdmin,
+  tool,
+}: {
+  actor: {
+    type: "user";
+    id: string;
+    userId: string;
+    scopes: string[];
+  };
+  input: unknown;
+  supabaseAdmin: ReturnType<typeof createAdminClient>;
+  tool: z.infer<typeof toolRequestSchema>["tool"];
+}) {
+  if (tool === "create_video_digest_job") {
+    const parsedInput = createVideoDigestJobInputSchema.safeParse(input);
+
+    if (!parsedInput.success) {
+      throw new ToolInputError(
+        parsedInput.error.issues[0]?.message ?? "Tool input 无效。",
+      );
+    }
+
+    return createVideoDigestJobTool
+      .createHandler({
+        jobEventsRepository: createSupabaseJobEventsRepository(supabaseAdmin),
+        usageEventsRepository:
+          createSupabaseUsageEventsRepository(supabaseAdmin),
+        videoDigestQueue: getVideoDigestQueue(),
+        videoRecordsRepository:
+          createSupabaseVideoRecordsRepository(supabaseAdmin),
+      })(parsedInput.data, { actor });
+  }
+
+  const parsedInput = getVideoDigestRecordInputSchema.safeParse(input);
+
+  if (!parsedInput.success) {
+    throw new ToolInputError(
+      parsedInput.error.issues[0]?.message ?? "Tool input 无效。",
+    );
+  }
+
+  return getVideoDigestRecordTool
+    .createHandler({
+      deliveryRecordsRepository:
+        createSupabaseDeliveryRecordsRepository(supabaseAdmin),
+      summariesRepository: createSupabaseSummariesRepository(supabaseAdmin),
+      transcriptsRepository: createSupabaseTranscriptsRepository(supabaseAdmin),
+      videoRecordsRepository: createSupabaseVideoRecordsRepository(supabaseAdmin),
+    })(parsedInput.data, { actor });
+}
+
+class ToolInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ToolInputError";
   }
 }
 

@@ -37,6 +37,7 @@ import {
 import { MailIcon, RefreshIcon, TrashIcon } from "../../_components/icons";
 import {
   cancelVideoDigestJobAction,
+  redeliverSummaryEmailAction,
   retryVideoDigestJobAction,
 } from "./actions";
 import { RecordAutoRefresh } from "./auto-refresh";
@@ -65,7 +66,7 @@ export default async function RecordDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ reused?: string }>;
+  searchParams?: Promise<{ deliveryMessage?: string; reused?: string }>;
 }) {
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
@@ -126,6 +127,13 @@ export default async function RecordDetailPage({
             <Button asChild variant="outline">
               <Link href={record.sourceUrl}>打开源视频</Link>
             </Button>
+            <form action={redeliverSummaryEmailAction}>
+              <input name="id" type="hidden" value={record.id} />
+              <Button disabled={!summary} type="submit" variant="outline">
+                <MailIcon />
+                重新投递
+              </Button>
+            </form>
             <form action={retryVideoDigestJobAction}>
               <input name="id" type="hidden" value={record.id} />
               <Button
@@ -148,13 +156,15 @@ export default async function RecordDetailPage({
                 取消任务
               </Button>
             </form>
-            <Button disabled>
-              <MailIcon />
-              发送邮件
-            </Button>
           </>
         }
       />
+
+      {resolvedSearchParams?.deliveryMessage ? (
+        <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">
+          {resolvedSearchParams.deliveryMessage}
+        </div>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid gap-5">

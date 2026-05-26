@@ -46,7 +46,7 @@ export async function callVideoDigestTool<TTool extends VideoDigestToolName>(
     headers: {
       Authorization: `Bearer ${config.token}`,
       "Content-Type": "application/json",
-      "User-Agent": "video-digest-mcp-server/0.1.0",
+      "User-Agent": "@video-digest-nextjs/mcp-server/0.1.0",
     },
     method: "POST",
   });

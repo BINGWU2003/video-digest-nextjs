@@ -35,6 +35,7 @@ catalog:
   tailwindcss: "^4.3.0"
   tailwind-merge: "^3.6.0"
   turbo: "^2.9.14"
+  tsup: "^8.5.1"
   tsx: "^4.20.6"
   typescript: "5.9.2"
   typescript-eslint: "^8.50.0"

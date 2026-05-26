@@ -1,5 +1,5 @@
 {
-  "name": "video-digest-mcp-server",
+  "name": "@video-digest-nextjs/mcp-server",
   "version": "0.1.0",
   "type": "module",
   "private": false,
@@ -11,7 +11,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsup \"src/**/*.ts\" --config ../../tsup.package.config.ts",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run test"
@@ -25,6 +25,7 @@
     "@video-digest-nextjs/typescript-config": "workspace:*",
     "@types/node": "catalog:",
     "eslint": "catalog:",
+    "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

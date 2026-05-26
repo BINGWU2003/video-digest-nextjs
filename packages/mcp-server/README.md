@@ -1,4 +1,4 @@
-# video-digest-mcp-server
+# @video-digest-nextjs/mcp-server
 
 Standard MCP stdio server for Video Digest. It wraps the web app's `/api/mcp`
 HTTP gateway, so MCP clients can create video digest jobs and read digest
@@ -9,7 +9,7 @@ records using a website MCP token.
 Build the package:
 
 ```bash
-pnpm --filter video-digest-mcp-server build
+pnpm --filter @video-digest-nextjs/mcp-server build
 ```
 
 Run it with environment variables:

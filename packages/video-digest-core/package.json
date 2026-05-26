@@ -10,7 +10,7 @@
     }
   },
   "scripts": {
-    "build": "tsup \"src/**/*.ts\" --config ../../tsup.package.config.ts",
+    "build": "tsup",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run test/create-video-record.test.mjs test/manage-video-digest-job.test.mjs"
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@video-digest-nextjs/eslint-config": "workspace:*",
+    "@video-digest-nextjs/tsup-config": "workspace:*",
     "@video-digest-nextjs/typescript-config": "workspace:*",
     "eslint": "catalog:",
     "tsup": "catalog:",

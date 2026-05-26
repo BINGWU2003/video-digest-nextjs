@@ -287,6 +287,9 @@ importers:
       '@video-digest-nextjs/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@video-digest-nextjs/tsup-config':
+        specifier: workspace:*
+        version: link:../tsup-config
       '@video-digest-nextjs/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -345,6 +348,9 @@ importers:
       '@video-digest-nextjs/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@video-digest-nextjs/tsup-config':
+        specifier: workspace:*
+        version: link:../tsup-config
       '@video-digest-nextjs/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -373,6 +379,9 @@ importers:
       '@video-digest-nextjs/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@video-digest-nextjs/tsup-config':
+        specifier: workspace:*
+        version: link:../tsup-config
       '@video-digest-nextjs/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -404,6 +413,9 @@ importers:
       '@video-digest-nextjs/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@video-digest-nextjs/tsup-config':
+        specifier: workspace:*
+        version: link:../tsup-config
       '@video-digest-nextjs/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -429,6 +441,9 @@ importers:
       '@video-digest-nextjs/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@video-digest-nextjs/tsup-config':
+        specifier: workspace:*
+        version: link:../tsup-config
       '@video-digest-nextjs/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -441,6 +456,12 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.2
+
+  packages/tsup-config:
+    devDependencies:
+      tsup:
+        specifier: 'catalog:'
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.3)(typescript@5.9.2)
 
   packages/typescript-config: {}
 
@@ -462,6 +483,9 @@ importers:
       '@video-digest-nextjs/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@video-digest-nextjs/tsup-config':
+        specifier: workspace:*
+        version: link:../tsup-config
       '@video-digest-nextjs/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config

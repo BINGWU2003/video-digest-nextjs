@@ -1,6 +1,5 @@
-import type { Options } from "tsup";
-
-const config: Options = {
+/** @type {import("tsup").Options} */
+export const packageConfig = {
   bundle: false,
   clean: true,
   dts: true,
@@ -9,5 +8,3 @@ const config: Options = {
   sourcemap: true,
   target: "node18",
 };
-
-export default config;

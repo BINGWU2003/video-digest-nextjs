@@ -11,7 +11,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup \"src/**/*.ts\" --config ../../tsup.package.config.ts",
+    "build": "tsup",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run test"
@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@video-digest-nextjs/eslint-config": "workspace:*",
+    "@video-digest-nextjs/tsup-config": "workspace:*",
     "@video-digest-nextjs/typescript-config": "workspace:*",
     "@types/node": "catalog:",
     "eslint": "catalog:",

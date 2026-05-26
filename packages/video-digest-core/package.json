@@ -13,7 +13,7 @@
     "build": "tsc",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node --test test/create-video-record.test.mjs test/manage-video-digest-job.test.mjs"
+    "test": "vitest run test/create-video-record.test.mjs test/manage-video-digest-job.test.mjs"
   },
   "dependencies": {
     "@video-digest-nextjs/database": "workspace:*",
@@ -25,6 +25,7 @@
     "@video-digest-nextjs/eslint-config": "workspace:*",
     "@video-digest-nextjs/typescript-config": "workspace:*",
     "eslint": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

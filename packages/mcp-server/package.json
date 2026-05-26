@@ -14,7 +14,7 @@
     "build": "tsc",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node --test test"
+    "test": "vitest run test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
@@ -25,7 +25,8 @@
     "@video-digest-nextjs/typescript-config": "workspace:*",
     "@types/node": "catalog:",
     "eslint": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "engines": {
     "node": ">=18"

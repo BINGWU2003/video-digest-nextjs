@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, mock, test } from "node:test";
+import { describe, test, vi } from "vitest";
 
 import {
   SummaryGenerationError,
@@ -15,7 +15,7 @@ const fixedDate = new Date("2026-05-23T09:00:00.000Z");
 const payload = { recordId, userId };
 const context = { attemptsMade: 1, queueJobId: "queue-job-1" };
 
-mock.method(globalThis.console, "log", () => {});
+vi.spyOn(globalThis.console, "log").mockImplementation(() => {});
 
 describe("processVideoDigestJob", () => {
   test("processes metadata, transcript and summary to completion", async () => {

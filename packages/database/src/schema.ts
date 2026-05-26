@@ -70,6 +70,9 @@ export const usageEventTypes = [
 /** `usage_events.unit` 使用的用量计量单位。 */
 export const usageUnits = ["count", "minute"] as const;
 
+/** `mcp_token_events.status` 使用的调用结果状态。 */
+export const mcpTokenEventStatuses = ["success", "failure"] as const;
+
 export type VideoRecordStatus = (typeof videoRecordStatuses)[number];
 export type VideoPlatform = (typeof videoPlatforms)[number];
 export type TranscriptSource = (typeof transcriptSources)[number];
@@ -81,3 +84,4 @@ export type DeliveryType = (typeof deliveryTypes)[number];
 export type DeliveryStatus = (typeof deliveryStatuses)[number];
 export type UsageEventType = (typeof usageEventTypes)[number];
 export type UsageUnit = (typeof usageUnits)[number];
+export type McpTokenEventStatus = (typeof mcpTokenEventStatuses)[number];

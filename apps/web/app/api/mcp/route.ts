@@ -1,6 +1,7 @@
 import {
   createSupabaseDeliveryRecordsRepository,
   createSupabaseJobEventsRepository,
+  createSupabaseMcpTokenEventsRepository,
   createSupabaseMcpTokensRepository,
   createSupabaseSummariesRepository,
   createSupabaseTranscriptsRepository,
@@ -35,8 +36,10 @@ const toolRequestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
+
   if (!hasSupabaseConfig()) {
-    return jsonError("请先配置 Supabase 环境变量。", 500);
+    return jsonError("请先配置 Supabase 环境变量。", 500, "supabase_not_configured");
   }
 
   const supabaseAdmin = createAdminClient();
@@ -44,23 +47,65 @@ export async function POST(request: NextRequest) {
   const requestBody = await readJson(request);
 
   if (!authenticatedActor.ok) {
-    return jsonError(authenticatedActor.message, authenticatedActor.status);
+    return jsonError(
+      authenticatedActor.message,
+      authenticatedActor.status,
+      authenticatedActor.code,
+    );
   }
 
   if (!requestBody.ok) {
-    return jsonError("请求体必须是有效 JSON。", 400);
+    await recordMcpTokenEvent({
+      code: "invalid_json",
+      message: "请求体必须是有效 JSON。",
+      startedAt,
+      status: "failure",
+      supabaseAdmin,
+      token: authenticatedActor.token,
+      toolName: "unknown",
+    });
+
+    return jsonError("请求体必须是有效 JSON。", 400, "invalid_json");
   }
 
   const parsedBody = toolRequestSchema.safeParse(requestBody.value);
 
   if (!parsedBody.success) {
-    return jsonError("MCP tool 请求格式无效。", 400);
+    await recordMcpTokenEvent({
+      code: "invalid_tool_request",
+      message: "MCP tool 请求格式无效。",
+      startedAt,
+      status: "failure",
+      supabaseAdmin,
+      token: authenticatedActor.token,
+      toolName: "unknown",
+    });
+
+    return jsonError(
+      "MCP tool 请求格式无效。",
+      400,
+      "invalid_tool_request",
+    );
   }
 
   const tool = getTool(parsedBody.data.tool);
 
   if (!hasRequiredScopes(authenticatedActor.actor.scopes, tool.requiredScopes)) {
-    return jsonError("MCP 令牌权限不足，无法调用该 tool。", 403);
+    await recordMcpTokenEvent({
+      code: "insufficient_scope",
+      message: "MCP 令牌权限不足，无法调用该 tool。",
+      startedAt,
+      status: "failure",
+      supabaseAdmin,
+      token: authenticatedActor.token,
+      toolName: parsedBody.data.tool,
+    });
+
+    return jsonError(
+      "MCP 令牌权限不足，无法调用该 tool。",
+      403,
+      "insufficient_scope",
+    );
   }
 
   try {
@@ -78,22 +123,56 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    await recordMcpTokenEvent({
+      startedAt,
+      status: "success",
+      supabaseAdmin,
+      token: authenticatedActor.token,
+      toolName: parsedBody.data.tool,
+    });
+
     return NextResponse.json({
       tool: parsedBody.data.tool,
       result,
     });
   } catch (caught) {
     if (isMissingDatabaseSchemaError(caught)) {
+      await recordMcpTokenEvent({
+        code: "database_schema_missing",
+        message:
+          "Supabase 数据表尚未创建。请先执行项目内的数据库迁移脚本。",
+        startedAt,
+        status: "failure",
+        supabaseAdmin,
+        token: authenticatedActor.token,
+        toolName: parsedBody.data.tool,
+      });
+
       return jsonError(
         "Supabase 数据表尚未创建。请先在 Supabase SQL Editor 执行 supabase/migrations/20260520213500_initial_video_digest_schema.sql。",
         503,
+        "database_schema_missing",
       );
     }
 
     const message =
       caught instanceof Error ? caught.message : "创建视频摘要任务失败。";
+    const code =
+      caught instanceof ToolInputError
+        ? "tool_input_invalid"
+        : "tool_execution_failed";
 
-    return jsonError(message, 400);
+    await recordMcpTokenEvent({
+      code,
+      message,
+      startedAt,
+      status: "failure",
+      supabaseAdmin,
+      token: authenticatedActor.token,
+      toolName: parsedBody.data.tool,
+    });
+
+    return jsonError(message, 400, code);
   }
 }
 
@@ -104,6 +183,7 @@ type AuthenticatedRequest =
       token: McpTokenRow | null;
     }
   | {
+      code: string;
       message: string;
       ok: false;
       status: number;
@@ -118,6 +198,7 @@ async function authenticateRequest(
   if (bearerToken) {
     if (!isMcpToken(bearerToken)) {
       return {
+        code: "invalid_token_format",
         message: "MCP 令牌格式无效。",
         ok: false,
         status: 401,
@@ -133,6 +214,7 @@ async function authenticateRequest(
 
     if (!token) {
       return {
+        code: "invalid_token",
         message: "MCP 令牌不存在、已撤销或已过期。",
         ok: false,
         status: 401,
@@ -157,6 +239,7 @@ async function authenticateRequest(
 
   if (error || !claims?.sub) {
     return {
+      code: "unauthorized",
       message: "未登录或登录已过期。",
       ok: false,
       status: 401,
@@ -195,6 +278,43 @@ function hasRequiredScopes(actorScopes: string[], requiredScopes: string[]) {
   const actorScopeSet = new Set(actorScopes);
 
   return requiredScopes.every((scope) => actorScopeSet.has(scope));
+}
+
+async function recordMcpTokenEvent({
+  code,
+  message,
+  startedAt,
+  status,
+  supabaseAdmin,
+  token,
+  toolName,
+}: {
+  code?: string;
+  message?: string;
+  startedAt: number;
+  status: "success" | "failure";
+  supabaseAdmin: ReturnType<typeof createAdminClient>;
+  token: McpTokenRow | null;
+  toolName: string;
+}) {
+  if (!token) {
+    return;
+  }
+
+  try {
+    await createSupabaseMcpTokenEventsRepository(supabaseAdmin).create({
+      durationMs: Date.now() - startedAt,
+      errorCode: code,
+      errorMessage: message,
+      status,
+      tokenId: token.id,
+      tokenPrefix: token.tokenPrefix,
+      toolName,
+      userId: token.userId,
+    });
+  } catch {
+    // 审计日志不能阻断 MCP 主流程。
+  }
 }
 
 function getTool(toolName: z.infer<typeof toolRequestSchema>["tool"]) {
@@ -272,10 +392,11 @@ async function readJson(request: NextRequest) {
   }
 }
 
-function jsonError(message: string, status: number) {
+function jsonError(message: string, status: number, code = "request_failed") {
   return NextResponse.json(
     {
       error: {
+        code,
         message,
       },
     },

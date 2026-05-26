@@ -1,5 +1,9 @@
 import {
+  createSupabaseMcpTokenEventsRepository,
   createSupabaseMcpTokensRepository,
+  isMissingDatabaseSchemaError,
+  type McpTokenEventRow,
+  type McpTokenEventStats,
   type McpTokenRow,
 } from "@repo/database";
 
@@ -35,6 +39,13 @@ const scopes = [
 const configExample = `MCP URL: https://your-domain.com/api/mcp
 Authorization: Bearer mcp_xxx`;
 
+const curlExample = [
+  "curl -X POST https://your-domain.com/api/mcp \\",
+  '  -H "Authorization: Bearer mcp_xxx" \\',
+  '  -H "Content-Type: application/json" \\',
+  `  -d '{"tool":"get_video_digest_record","input":{"recordId":"00000000-0000-0000-0000-000000000000","segmentLimit":20}}'`,
+].join("\n");
+
 export const dynamic = "force-dynamic";
 
 export default async function McpTokenSettingsPage({
@@ -44,10 +55,20 @@ export default async function McpTokenSettingsPage({
 }) {
   const resolvedSearchParams = await searchParams;
   const user = await requireUser();
-  const mcpTokensRepository = createSupabaseMcpTokensRepository(
-    createAdminClient(),
-  );
+  const supabaseAdmin = createAdminClient();
+  const mcpTokensRepository =
+    createSupabaseMcpTokensRepository(supabaseAdmin);
+  const mcpTokenEventsRepository =
+    createSupabaseMcpTokenEventsRepository(supabaseAdmin);
   const mcpTokens = await mcpTokensRepository.listForUser({ userId: user.id });
+  const { recentTokenEvents, tokenEventStats } = await loadMcpTokenEventData({
+    mcpTokenEventsRepository,
+    tokenIds: mcpTokens.map((token) => token.id),
+    userId: user.id,
+  });
+  const tokenEventStatsByTokenId = new Map(
+    tokenEventStats.map((stats) => [stats.tokenId, stats]),
+  );
   const activeTokenCount = mcpTokens.filter(isActiveToken).length;
 
   return (
@@ -90,7 +111,11 @@ export default async function McpTokenSettingsPage({
           {mcpTokens.length > 0 ? (
             <div className="divide-y divide-slate-200">
               {mcpTokens.map((token) => (
-                <TokenItem key={token.id} token={token} />
+                <TokenItem
+                  key={token.id}
+                  stats={tokenEventStatsByTokenId.get(token.id)}
+                  token={token}
+                />
               ))}
             </div>
           ) : (
@@ -158,15 +183,50 @@ export default async function McpTokenSettingsPage({
               <CopyTextButton label="复制配置" text={configExample} />
             </div>
           </Panel>
+
+          <Panel>
+            <PanelHeader title="调用示例" />
+            <div className="grid gap-3 p-5">
+              <pre className="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-slate-100">
+                {curlExample}
+              </pre>
+              <CopyTextButton label="复制 curl" text={curlExample} />
+            </div>
+          </Panel>
         </div>
       </div>
+
+      <Panel className="mt-5">
+        <PanelHeader
+          title="最近 MCP 调用"
+          description={`${recentTokenEvents.length} 条最近调用事件`}
+        />
+        {recentTokenEvents.length > 0 ? (
+          <div className="divide-y divide-slate-200">
+            {recentTokenEvents.map((event) => (
+              <RecentTokenEventItem key={event.id} event={event} />
+            ))}
+          </div>
+        ) : (
+          <div className="p-5 text-sm leading-6 text-slate-600">
+            暂无 MCP 调用事件。外部智能体通过 token 调用后会显示成功、失败原因和耗时。
+          </div>
+        )}
+      </Panel>
     </AppShell>
   );
 }
 
-function TokenItem({ token }: { token: McpTokenRow }) {
+function TokenItem({
+  stats,
+  token,
+}: {
+  stats: McpTokenEventStats | undefined;
+  token: McpTokenRow;
+}) {
   const tokenStatus = getTokenStatus(token);
   const canRevoke = tokenStatus === "active";
+  const latestEvent = stats?.latestEvent ?? null;
 
   return (
     <div className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_160px_auto] lg:items-center">
@@ -180,6 +240,28 @@ function TokenItem({ token }: { token: McpTokenRow }) {
         <p className="mt-2 text-sm text-slate-500">
           上次使用：{formatOptionalDate(token.lastUsedAt)}
         </p>
+        <p className="mt-1 text-sm text-slate-500">
+          调用：{stats?.totalCount ?? 0} 次 · 成功 {stats?.successCount ?? 0} /
+          失败 {stats?.failureCount ?? 0}
+        </p>
+        {latestEvent ? (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={mcpEventStatusTone[latestEvent.status]}>
+                {mcpEventStatusLabel[latestEvent.status]}
+              </StatusBadge>
+              <span className="font-mono">{latestEvent.toolName}</span>
+              <span>{latestEvent.durationMs}ms</span>
+              <span>{formatDateTime(latestEvent.createdAt)}</span>
+            </div>
+            {latestEvent.errorMessage ? (
+              <p className="mt-2 line-clamp-2 text-red-700">
+                {latestEvent.errorCode ? `${latestEvent.errorCode}: ` : ""}
+                {latestEvent.errorMessage}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {token.scopes.map((scope) => (
             <span
@@ -210,6 +292,73 @@ function TokenItem({ token }: { token: McpTokenRow }) {
   );
 }
 
+function RecentTokenEventItem({ event }: { event: McpTokenEventRow }) {
+  return (
+    <div className="grid gap-3 px-5 py-4 lg:grid-cols-[180px_1fr_120px_180px] lg:items-center">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge tone={mcpEventStatusTone[event.status]}>
+          {mcpEventStatusLabel[event.status]}
+        </StatusBadge>
+        <span className="font-mono text-xs text-slate-500">
+          {event.tokenPrefix ?? "mcp_..."}
+        </span>
+      </div>
+      <div>
+        <p className="font-mono text-sm text-slate-950">{event.toolName}</p>
+        {event.errorMessage ? (
+          <p className="mt-1 line-clamp-2 text-sm text-red-700">
+            {event.errorCode ? `${event.errorCode}: ` : ""}
+            {event.errorMessage}
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-slate-500">调用完成</p>
+        )}
+      </div>
+      <p className="text-sm text-slate-500">{event.durationMs}ms</p>
+      <p className="text-sm text-slate-500">{formatDateTime(event.createdAt)}</p>
+    </div>
+  );
+}
+
+async function loadMcpTokenEventData({
+  mcpTokenEventsRepository,
+  tokenIds,
+  userId,
+}: {
+  mcpTokenEventsRepository: ReturnType<
+    typeof createSupabaseMcpTokenEventsRepository
+  >;
+  tokenIds: string[];
+  userId: string;
+}) {
+  try {
+    const [tokenEventStats, recentTokenEvents] = await Promise.all([
+      mcpTokenEventsRepository.listStatsForUserTokenIds({
+        tokenIds,
+        userId,
+      }),
+      mcpTokenEventsRepository.listForUser({
+        limit: 8,
+        userId,
+      }),
+    ]);
+
+    return {
+      recentTokenEvents,
+      tokenEventStats,
+    };
+  } catch (caught) {
+    if (isMissingDatabaseSchemaError(caught)) {
+      return {
+        recentTokenEvents: [] as McpTokenEventRow[],
+        tokenEventStats: [] as McpTokenEventStats[],
+      };
+    }
+
+    throw caught;
+  }
+}
+
 type TokenStatus = "active" | "expired" | "revoked";
 
 const tokenStatusLabel: Record<TokenStatus, string> = {
@@ -225,6 +374,19 @@ const tokenStatusTone: Record<
   active: "green",
   expired: "amber",
   revoked: "slate",
+};
+
+const mcpEventStatusLabel: Record<McpTokenEventRow["status"], string> = {
+  failure: "失败",
+  success: "成功",
+};
+
+const mcpEventStatusTone: Record<
+  McpTokenEventRow["status"],
+  "green" | "red"
+> = {
+  failure: "red",
+  success: "green",
 };
 
 function getTokenStatus(token: McpTokenRow): TokenStatus {

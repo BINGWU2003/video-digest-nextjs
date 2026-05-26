@@ -2,6 +2,7 @@ import type {
   DeliveryStatus,
   DeliveryType,
   EmailAddressStatus,
+  McpTokenEventStatus,
   OutputMode,
   RecordCreatorType,
   SummaryFormat,
@@ -217,6 +218,29 @@ export type McpTokenRow = {
   /** token 撤销时间；为空表示 token 仍启用。 */
   revokedAt: Date | null;
   /** token 创建时间。 */
+  createdAt: Date;
+};
+
+export type McpTokenEventRow = {
+  /** MCP token 调用事件主键。 */
+  id: string;
+  /** 调用所属用户 ID。 */
+  userId: string;
+  /** 关联 token ID；token 被删除时可为空。 */
+  tokenId: string | null;
+  /** 调用发生时的 token 展示前缀。 */
+  tokenPrefix: string | null;
+  /** 被调用的 MCP tool 名称。 */
+  toolName: string;
+  /** 调用结果状态。 */
+  status: McpTokenEventStatus;
+  /** 结构化错误码。 */
+  errorCode: string | null;
+  /** 错误说明。 */
+  errorMessage: string | null;
+  /** 调用耗时，单位毫秒。 */
+  durationMs: number;
+  /** 调用事件创建时间。 */
   createdAt: Date;
 };
 

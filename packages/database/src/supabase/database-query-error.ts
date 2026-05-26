@@ -21,7 +21,9 @@ export function isMissingDatabaseSchemaError(caught: unknown) {
   }
 
   return (
+    cause.code === "PGRST202" ||
     cause.code === "PGRST205" ||
+    cause.message?.includes("Could not find the function") === true ||
     cause.message?.includes("Could not find the table") === true
   );
 }

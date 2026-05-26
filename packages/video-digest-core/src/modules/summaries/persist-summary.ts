@@ -1,4 +1,4 @@
-import type { SummariesRepository } from "@repo/database";
+import type { SummariesRepository } from "@video-digest-nextjs/database";
 
 import type { GeneratedSummary } from "./types.js";
 

@@ -2,7 +2,7 @@ import {
   createSupabaseDeliveryRecordsRepository,
   createSupabaseJobEventsRepository,
   type DeliveryStatus,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import { NextResponse, type NextRequest } from "next/server";
 import { Webhook } from "svix";
 import { z } from "zod";

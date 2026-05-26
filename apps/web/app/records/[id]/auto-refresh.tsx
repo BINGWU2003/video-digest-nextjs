@@ -1,6 +1,6 @@
 "use client";
 
-import type { VideoRecordStatus } from "@repo/database";
+import type { VideoRecordStatus } from "@video-digest-nextjs/database";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 

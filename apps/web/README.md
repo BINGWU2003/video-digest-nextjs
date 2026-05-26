@@ -81,7 +81,7 @@ pnpm --filter web build
 
 ## API 模板
 
-当前 Dashboard 已通过 server action 调用 `@repo/video-digest-core` 创建真实任务；`/records` 和 `/records/[id]` 会读取 Supabase 中的真实 `video_records` 与最新字幕分段。`/api/mcp` 先实现最小 tool gateway，不是完整 MCP 协议实现。它接受当前登录用户 session，并调用后端模块创建一条真实 `video_records` 记录，同时写入 `job_events` 的排队事件、`usage_events` 的创建用量，并调用队列 enqueue 边界。
+当前 Dashboard 已通过 server action 调用 `@video-digest-nextjs/video-digest-core` 创建真实任务；`/records` 和 `/records/[id]` 会读取 Supabase 中的真实 `video_records` 与最新字幕分段。`/api/mcp` 先实现最小 tool gateway，不是完整 MCP 协议实现。它接受当前登录用户 session，并调用后端模块创建一条真实 `video_records` 记录，同时写入 `job_events` 的排队事件、`usage_events` 的创建用量，并调用队列 enqueue 边界。
 
 队列实现由 `REDIS_URL` 决定：配置后使用 BullMQ 真实入队，未配置时使用 no-op 队列。
 

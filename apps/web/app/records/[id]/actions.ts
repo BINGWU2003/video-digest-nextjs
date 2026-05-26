@@ -9,7 +9,7 @@ import {
   createSupabaseVideoRecordsRepository,
   isMissingDatabaseSchemaError,
   type DeliveryRecordRow,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import {
   cancelVideoDigestJob,
   createResendEmailDeliveryProvider,
@@ -18,7 +18,7 @@ import {
   createSummaryEmailSubject,
   createSummaryEmailText,
   retryVideoDigestJob,
-} from "@repo/video-digest-core";
+} from "@video-digest-nextjs/video-digest-core";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { VideoRecordRow } from "@repo/database";
+import type { VideoRecordRow } from "@video-digest-nextjs/database";
 
 import { Button } from "@/components/ui/button";
 import {

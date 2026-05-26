@@ -5,4 +5,4 @@ export {
   type EmailDeliveryProvider,
   type SendEmailInput,
   type SendEmailResult,
-} from "@repo/video-digest-core";
+} from "@video-digest-nextjs/video-digest-core";

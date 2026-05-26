@@ -1,4 +1,4 @@
-# @repo/video-digest-core
+# @video-digest-nextjs/video-digest-core
 
 视频摘要核心业务包。这里放真实业务编排，但不绑定 Next.js、MCP 协议、BullMQ 或具体数据库客户端。
 
@@ -64,17 +64,17 @@ src/modules/summaries/
 
 ```txt
 mcp-tools / server action / worker
-  -> @repo/video-digest-core
-  -> @repo/database repository interface
-  -> @repo/queue queue interface
+  -> @video-digest-nextjs/video-digest-core
+  -> @video-digest-nextjs/database repository interface
+  -> @video-digest-nextjs/queue queue interface
 ```
 
 ## 常用命令
 
 ```bash
-pnpm --filter @repo/video-digest-core lint
-pnpm --filter @repo/video-digest-core check-types
-pnpm --filter @repo/video-digest-core build
+pnpm --filter @video-digest-nextjs/video-digest-core lint
+pnpm --filter @video-digest-nextjs/video-digest-core check-types
+pnpm --filter @video-digest-nextjs/video-digest-core build
 ```
 
 ## 后续计划

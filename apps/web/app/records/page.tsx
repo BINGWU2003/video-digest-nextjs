@@ -8,7 +8,7 @@ import {
   type VideoPlatform,
   videoPlatforms,
   videoRecordStatuses,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";

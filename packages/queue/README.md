@@ -1,4 +1,4 @@
-# @repo/queue
+# @video-digest-nextjs/queue
 
 队列边界包。用于封装队列名称、job 名称、payload 类型、入队接口和 BullMQ/Redis 适配。
 
@@ -43,9 +43,9 @@ src/index.ts
 ## 常用命令
 
 ```bash
-pnpm --filter @repo/queue lint
-pnpm --filter @repo/queue check-types
-pnpm --filter @repo/queue build
+pnpm --filter @video-digest-nextjs/queue lint
+pnpm --filter @video-digest-nextjs/queue check-types
+pnpm --filter @video-digest-nextjs/queue build
 ```
 
 `createBullMqVideoDigestWorker()` 使用 BullMQ `Worker` 消费 `process-video-digest` job。worker 侧 Redis 连接使用 `maxRetriesPerRequest: null`，适合常驻后台进程持续等待 Redis 恢复。

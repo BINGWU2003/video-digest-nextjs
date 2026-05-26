@@ -4,12 +4,12 @@ import type {
   TranscriptsRepository,
   VideoRecordsRepository,
   DeliveryRecordRow,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import {
   type GetVideoDigestRecordInput,
   type VideoDigestRecordOutput,
   videoDigestRecordOutputSchema,
-} from "@repo/job-contracts";
+} from "@video-digest-nextjs/job-contracts";
 
 import type { ToolDefinition } from "../tool-definition.js";
 

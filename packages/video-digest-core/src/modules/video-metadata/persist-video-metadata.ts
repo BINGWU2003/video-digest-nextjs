@@ -1,4 +1,4 @@
-import type { VideoRecordsRepository } from "@repo/database";
+import type { VideoRecordsRepository } from "@video-digest-nextjs/database";
 
 import type { VideoMetadata } from "./types.js";
 

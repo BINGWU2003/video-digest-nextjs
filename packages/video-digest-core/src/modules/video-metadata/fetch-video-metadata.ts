@@ -1,4 +1,4 @@
-import type { VideoPlatform } from "@repo/database";
+import type { VideoPlatform } from "@video-digest-nextjs/database";
 
 import type {
   FetchVideoMetadataInput,

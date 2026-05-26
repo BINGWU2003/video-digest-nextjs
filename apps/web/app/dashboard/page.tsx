@@ -3,7 +3,7 @@ import {
   createSupabaseVideoRecordsRepository,
   isMissingDatabaseSchemaError,
   type VideoRecordRow,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 

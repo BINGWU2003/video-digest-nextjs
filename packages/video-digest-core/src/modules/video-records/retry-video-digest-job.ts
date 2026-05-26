@@ -2,9 +2,9 @@ import type {
   JobEventsRepository,
   VideoRecordRow,
   VideoRecordsRepository,
-} from "@repo/database";
-import type { VideoRecordStatus } from "@repo/database";
-import type { VideoDigestQueue } from "@repo/queue";
+} from "@video-digest-nextjs/database";
+import type { VideoRecordStatus } from "@video-digest-nextjs/database";
+import type { VideoDigestQueue } from "@video-digest-nextjs/queue";
 
 type RetryVideoDigestJobDependencies = {
   videoRecordsRepository: VideoRecordsRepository;

@@ -1,4 +1,4 @@
-# @repo/eslint-config
+# @video-digest-nextjs/eslint-config
 
 共享 ESLint 配置包，供 monorepo 内的 apps 和 packages 复用。
 
@@ -12,9 +12,9 @@
 ## 导出项
 
 ```txt
-@repo/eslint-config/base
-@repo/eslint-config/next-js
-@repo/eslint-config/react-internal
+@video-digest-nextjs/eslint-config/base
+@video-digest-nextjs/eslint-config/next-js
+@video-digest-nextjs/eslint-config/react-internal
 ```
 
 ## 使用方式
@@ -22,7 +22,7 @@
 普通 TypeScript 包：
 
 ```js
-import { config } from "@repo/eslint-config/base";
+import { config } from "@video-digest-nextjs/eslint-config/base";
 
 export default config;
 ```
@@ -30,7 +30,7 @@ export default config;
 Next.js 应用：
 
 ```js
-import { nextJsConfig } from "@repo/eslint-config/next-js";
+import { nextJsConfig } from "@video-digest-nextjs/eslint-config/next-js";
 
 export default nextJsConfig;
 ```

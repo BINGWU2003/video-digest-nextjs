@@ -1,4 +1,4 @@
-import type { SummaryRow, VideoRecordRow } from "@repo/database";
+import type { SummaryRow, VideoRecordRow } from "@video-digest-nextjs/database";
 
 export function createSummaryEmailSubject() {
   return "你的视频摘要已生成";

@@ -2,8 +2,8 @@ import type {
   JobEventsRepository,
   VideoRecordRow,
   VideoRecordsRepository,
-} from "@repo/database";
-import type { VideoRecordStatus } from "@repo/database";
+} from "@video-digest-nextjs/database";
+import type { VideoRecordStatus } from "@video-digest-nextjs/database";
 
 type CancelVideoDigestJobDependencies = {
   videoRecordsRepository: VideoRecordsRepository;

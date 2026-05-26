@@ -2,8 +2,8 @@ import {
   type CreateVideoDigestJobInput,
   type CreateVideoDigestJobOutput,
   createVideoDigestJobOutputSchema,
-} from "@repo/job-contracts";
-import { createVideoRecord } from "@repo/video-digest-core";
+} from "@video-digest-nextjs/job-contracts";
+import { createVideoRecord } from "@video-digest-nextjs/video-digest-core";
 
 import type { ToolDefinition } from "../tool-definition.js";
 

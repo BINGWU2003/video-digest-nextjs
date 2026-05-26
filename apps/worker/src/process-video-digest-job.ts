@@ -8,11 +8,11 @@ import type {
   SummaryRow,
   VideoRecordRow,
   VideoRecordsRepository,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import type {
   VideoDigestQueuePayload,
   VideoDigestWorkerContext,
-} from "@repo/queue";
+} from "@video-digest-nextjs/queue";
 import {
   fetchTranscript,
   fetchVideoMetadata,
@@ -36,7 +36,7 @@ import {
   VideoMetadataProviderUnavailableError,
   type VideoMetadataProviderRegistry,
   type EmailDeliveryProvider,
-} from "@repo/video-digest-core";
+} from "@video-digest-nextjs/video-digest-core";
 
 export type ProcessVideoDigestJobDependencies = {
   deliveryRecordsRepository: DeliveryRecordsRepository;

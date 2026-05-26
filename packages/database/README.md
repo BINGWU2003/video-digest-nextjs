@@ -1,4 +1,4 @@
-# @repo/database
+# @video-digest-nextjs/database
 
 数据库边界包。这里放数据库表类型、repository interface，以及后续 Supabase/Postgres 的具体实现。
 
@@ -11,7 +11,7 @@
 
 ## 边界
 
-- 不依赖 `@repo/video-digest-core`。
+- 不依赖 `@video-digest-nextjs/video-digest-core`。
 - 不写 MCP tool 或 worker 逻辑。
 - 不做复杂业务编排，只负责数据访问边界。
 
@@ -70,9 +70,9 @@ supabase/migrations/20260520213500_initial_video_digest_schema.sql
 ## 常用命令
 
 ```bash
-pnpm --filter @repo/database lint
-pnpm --filter @repo/database check-types
-pnpm --filter @repo/database build
+pnpm --filter @video-digest-nextjs/database lint
+pnpm --filter @video-digest-nextjs/database check-types
+pnpm --filter @video-digest-nextjs/database build
 ```
 
 ## 相关文档

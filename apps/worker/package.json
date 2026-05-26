@@ -12,17 +12,17 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@repo/database": "workspace:*",
-    "@repo/queue": "workspace:*",
-    "@repo/video-digest-core": "workspace:*",
+    "@video-digest-nextjs/database": "workspace:*",
+    "@video-digest-nextjs/queue": "workspace:*",
+    "@video-digest-nextjs/video-digest-core": "workspace:*",
     "@supabase/supabase-js": "catalog:",
     "dotenv": "catalog:",
     "undici": "catalog:",
     "ws": "catalog:"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@video-digest-nextjs/eslint-config": "workspace:*",
+    "@video-digest-nextjs/typescript-config": "workspace:*",
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
     "eslint": "catalog:",

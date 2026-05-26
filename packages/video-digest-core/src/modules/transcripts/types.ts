@@ -1,4 +1,4 @@
-import type { TranscriptSource, VideoPlatform } from "@repo/database";
+import type { TranscriptSource, VideoPlatform } from "@video-digest-nextjs/database";
 
 export type TranscriptSegment = {
   /** 分段开始时间，单位秒，可包含小数；未知时为空。 */

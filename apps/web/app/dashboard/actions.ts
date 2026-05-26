@@ -5,9 +5,9 @@ import {
   createSupabaseUsageEventsRepository,
   createSupabaseVideoRecordsRepository,
   isMissingDatabaseSchemaError,
-} from "@repo/database";
-import { createVideoDigestJobInputSchema } from "@repo/job-contracts";
-import { createVideoRecord } from "@repo/video-digest-core";
+} from "@video-digest-nextjs/database";
+import { createVideoDigestJobInputSchema } from "@video-digest-nextjs/job-contracts";
+import { createVideoRecord } from "@video-digest-nextjs/video-digest-core";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";

@@ -1,4 +1,4 @@
-# @repo/typescript-config
+# @video-digest-nextjs/typescript-config
 
 共享 TypeScript 配置包，供 monorepo 内所有 apps 和 packages 继承。
 
@@ -27,7 +27,7 @@ react-library.json
 
 ```json
 {
-  "extends": "@repo/typescript-config/base.json"
+  "extends": "@video-digest-nextjs/typescript-config/base.json"
 }
 ```
 
@@ -35,7 +35,7 @@ Next.js 应用：
 
 ```json
 {
-  "extends": "@repo/typescript-config/nextjs.json"
+  "extends": "@video-digest-nextjs/typescript-config/nextjs.json"
 }
 ```
 

@@ -3,7 +3,7 @@
 import {
   createSupabaseEmailAddressesRepository,
   isMissingDatabaseSchemaError,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";

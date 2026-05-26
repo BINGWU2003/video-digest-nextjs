@@ -3,7 +3,7 @@
 import {
   createSupabaseMcpTokensRepository,
   isMissingDatabaseSchemaError,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";

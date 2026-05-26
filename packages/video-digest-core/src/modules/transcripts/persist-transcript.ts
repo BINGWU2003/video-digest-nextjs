@@ -1,4 +1,4 @@
-import type { TranscriptsRepository } from "@repo/database";
+import type { TranscriptsRepository } from "@video-digest-nextjs/database";
 
 import type { TranscriptResult } from "./types.js";
 

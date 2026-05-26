@@ -21,8 +21,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@video-digest-nextjs/eslint-config": "workspace:*",
+    "@video-digest-nextjs/typescript-config": "workspace:*",
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:"

@@ -1,5 +1,5 @@
 {
-  "name": "@repo/mcp-tools",
+  "name": "@video-digest-nextjs/mcp-tools",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -15,13 +15,13 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@repo/database": "workspace:*",
-    "@repo/job-contracts": "workspace:*",
-    "@repo/video-digest-core": "workspace:*"
+    "@video-digest-nextjs/database": "workspace:*",
+    "@video-digest-nextjs/job-contracts": "workspace:*",
+    "@video-digest-nextjs/video-digest-core": "workspace:*"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@video-digest-nextjs/eslint-config": "workspace:*",
+    "@video-digest-nextjs/typescript-config": "workspace:*",
     "eslint": "catalog:",
     "typescript": "catalog:"
   }

@@ -1,4 +1,4 @@
-import type { Actor } from "@repo/job-contracts";
+import type { Actor } from "@video-digest-nextjs/job-contracts";
 
 export type ToolHandlerContext = {
   actor: Actor;

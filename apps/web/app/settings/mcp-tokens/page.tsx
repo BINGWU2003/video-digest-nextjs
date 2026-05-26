@@ -5,7 +5,7 @@ import {
   type McpTokenEventRow,
   type McpTokenEventStats,
   type McpTokenRow,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";

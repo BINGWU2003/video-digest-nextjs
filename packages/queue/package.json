@@ -1,5 +1,5 @@
 {
-  "name": "@repo/queue",
+  "name": "@video-digest-nextjs/queue",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -19,8 +19,8 @@
     "ioredis": "catalog:"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@video-digest-nextjs/eslint-config": "workspace:*",
+    "@video-digest-nextjs/typescript-config": "workspace:*",
     "eslint": "catalog:",
     "typescript": "catalog:"
   }

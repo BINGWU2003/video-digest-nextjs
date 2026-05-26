@@ -2,7 +2,7 @@ import {
   createBullMqVideoDigestQueue,
   createNoopVideoDigestQueue,
   type VideoDigestQueue,
-} from "@repo/queue";
+} from "@video-digest-nextjs/queue";
 
 let videoDigestQueue: VideoDigestQueue | null = null;
 

@@ -1,4 +1,4 @@
-import type { SummaryFormat } from "@repo/database";
+import type { SummaryFormat } from "@video-digest-nextjs/database";
 
 import type { TranscriptSegment } from "../transcripts/types.js";
 

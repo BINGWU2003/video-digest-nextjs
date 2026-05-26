@@ -9,7 +9,7 @@ import {
   type SummaryRow,
   type TranscriptSegmentRow,
   type VideoRecordStatus,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 

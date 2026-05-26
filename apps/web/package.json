@@ -11,11 +11,11 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
-    "@repo/database": "workspace:*",
-    "@repo/job-contracts": "workspace:*",
-    "@repo/mcp-tools": "workspace:*",
-    "@repo/queue": "workspace:*",
-    "@repo/video-digest-core": "workspace:*",
+    "@video-digest-nextjs/database": "workspace:*",
+    "@video-digest-nextjs/job-contracts": "workspace:*",
+    "@video-digest-nextjs/mcp-tools": "workspace:*",
+    "@video-digest-nextjs/queue": "workspace:*",
+    "@video-digest-nextjs/video-digest-core": "workspace:*",
     "@supabase/ssr": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "class-variance-authority": "catalog:",
@@ -30,8 +30,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@video-digest-nextjs/eslint-config": "workspace:*",
+    "@video-digest-nextjs/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

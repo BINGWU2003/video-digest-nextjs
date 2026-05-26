@@ -1,4 +1,4 @@
-# @repo/job-contracts
+# @video-digest-nextjs/job-contracts
 
 跨层契约包。这里放输入输出 schema、actor、job payload 和跨包共享类型。
 
@@ -26,15 +26,15 @@ src/video-digest.ts
 ## 常用命令
 
 ```bash
-pnpm --filter @repo/job-contracts lint
-pnpm --filter @repo/job-contracts check-types
-pnpm --filter @repo/job-contracts build
+pnpm --filter @video-digest-nextjs/job-contracts lint
+pnpm --filter @video-digest-nextjs/job-contracts check-types
+pnpm --filter @video-digest-nextjs/job-contracts build
 ```
 
 ## 使用示例
 
 ```ts
-import { createVideoDigestJobInputSchema } from "@repo/job-contracts";
+import { createVideoDigestJobInputSchema } from "@video-digest-nextjs/job-contracts";
 
 const input = createVideoDigestJobInputSchema.parse(payload);
 ```

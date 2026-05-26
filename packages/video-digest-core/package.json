@@ -1,5 +1,5 @@
 {
-  "name": "@repo/video-digest-core",
+  "name": "@video-digest-nextjs/video-digest-core",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -16,14 +16,14 @@
     "test": "node --test test/create-video-record.test.mjs test/manage-video-digest-job.test.mjs"
   },
   "dependencies": {
-    "@repo/database": "workspace:*",
-    "@repo/job-contracts": "workspace:*",
-    "@repo/queue": "workspace:*",
+    "@video-digest-nextjs/database": "workspace:*",
+    "@video-digest-nextjs/job-contracts": "workspace:*",
+    "@video-digest-nextjs/queue": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@video-digest-nextjs/eslint-config": "workspace:*",
+    "@video-digest-nextjs/typescript-config": "workspace:*",
     "eslint": "catalog:",
     "typescript": "catalog:"
   }

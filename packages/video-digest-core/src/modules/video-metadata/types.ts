@@ -1,4 +1,4 @@
-import type { VideoPlatform } from "@repo/database";
+import type { VideoPlatform } from "@video-digest-nextjs/database";
 
 export type VideoMetadata = {
   /** 视频标题；平台未返回时为空。 */

@@ -9,16 +9,16 @@ import {
   createSupabaseVideoRecordsRepository,
   isMissingDatabaseSchemaError,
   type McpTokenRow,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import {
   type Actor,
   createVideoDigestJobInputSchema,
   getVideoDigestRecordInputSchema,
-} from "@repo/job-contracts";
+} from "@video-digest-nextjs/job-contracts";
 import {
   createVideoDigestJobTool,
   getVideoDigestRecordTool,
-} from "@repo/mcp-tools";
+} from "@video-digest-nextjs/mcp-tools";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 

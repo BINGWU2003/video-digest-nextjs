@@ -4,14 +4,14 @@ import type {
   UsageEventsRepository,
   VideoRecordRow,
   VideoRecordsRepository,
-} from "@repo/database";
-import type { RecordCreatorType, VideoRecordStatus } from "@repo/database";
+} from "@video-digest-nextjs/database";
+import type { RecordCreatorType, VideoRecordStatus } from "@video-digest-nextjs/database";
 import {
   type Actor,
   type CreateVideoDigestJobInput,
   createVideoDigestJobInputSchema,
-} from "@repo/job-contracts";
-import type { VideoDigestQueue } from "@repo/queue";
+} from "@video-digest-nextjs/job-contracts";
+import type { VideoDigestQueue } from "@video-digest-nextjs/queue";
 
 type CreateVideoRecordDependencies = {
   videoRecordsRepository: VideoRecordsRepository;

@@ -1,5 +1,5 @@
 {
-  "name": "@repo/database",
+  "name": "@video-digest-nextjs/database",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -18,8 +18,8 @@
     "@supabase/supabase-js": "catalog:"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
+    "@video-digest-nextjs/eslint-config": "workspace:*",
+    "@video-digest-nextjs/typescript-config": "workspace:*",
     "eslint": "catalog:",
     "typescript": "catalog:"
   }

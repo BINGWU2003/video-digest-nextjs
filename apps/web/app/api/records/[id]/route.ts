@@ -1,4 +1,4 @@
-import { createSupabaseVideoRecordsRepository } from "@repo/database";
+import { createSupabaseVideoRecordsRepository } from "@video-digest-nextjs/database";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 

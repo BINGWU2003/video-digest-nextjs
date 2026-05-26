@@ -3,7 +3,7 @@ import type {
   VideoPlatform,
   VideoRecordRow,
   VideoRecordStatus,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 
 export const statusLabels: Record<VideoRecordStatus, string> = {
   cancelled: "已取消",

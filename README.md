@@ -47,21 +47,21 @@ supabase/migrations/   Supabase SQL migrations
 ```txt
 create_video_digest_job
   -> apps/web Dashboard server action 或 POST /api/records
-  -> @repo/video-digest-core createVideoRecord()
-  -> @repo/database VideoRecordsRepository
-  -> @repo/database JobEventsRepository
-  -> @repo/database UsageEventsRepository
-  -> @repo/queue VideoDigestQueue
+  -> @video-digest-nextjs/video-digest-core createVideoRecord()
+  -> @video-digest-nextjs/database VideoRecordsRepository
+  -> @video-digest-nextjs/database JobEventsRepository
+  -> @video-digest-nextjs/database UsageEventsRepository
+  -> @video-digest-nextjs/queue VideoDigestQueue
   -> apps/worker job_events(fetching_metadata)
-  -> @repo/video-digest-core fetchVideoMetadata()
+  -> @video-digest-nextjs/video-digest-core fetchVideoMetadata()
   -> YouTube yt-dlp provider / Bilibili placeholder
   -> persistVideoMetadata()
-  -> @repo/database VideoRecordsRepository.updateMetadataForUser()
+  -> @video-digest-nextjs/database VideoRecordsRepository.updateMetadataForUser()
   -> apps/worker job_events(extracting_transcript)
-  -> @repo/video-digest-core fetchTranscript()
+  -> @video-digest-nextjs/video-digest-core fetchTranscript()
   -> YouTube transcript provider / Bilibili placeholder
   -> persistTranscript()
-  -> @repo/database TranscriptsRepository.create()
+  -> @video-digest-nextjs/database TranscriptsRepository.create()
   -> apps/web /records/[id] 读取最新字幕分段
   -> transcript 输出模式 completed / summary 输出模式 summarizing
   -> failed 时写入细分 error_code
@@ -152,7 +152,7 @@ pnpm format
 ```bash
 pnpm --filter web dev
 pnpm --filter worker build
-pnpm --filter @repo/video-digest-core check-types
+pnpm --filter @video-digest-nextjs/video-digest-core check-types
 ```
 
 ## 文档入口

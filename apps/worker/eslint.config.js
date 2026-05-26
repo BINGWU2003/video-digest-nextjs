@@ -1,3 +1,3 @@
-import { config } from "@repo/eslint-config/base";
+import { config } from "@video-digest-nextjs/eslint-config/base";
 
 export default config;

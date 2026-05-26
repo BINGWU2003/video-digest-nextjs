@@ -4,7 +4,7 @@ import {
   type DeliveryRecordListItem,
   type DeliveryRecordRow,
   type EmailAddressRow,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 

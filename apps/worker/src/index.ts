@@ -6,13 +6,13 @@ import {
   createSupabaseTranscriptsRepository,
   createSupabaseUsageEventsRepository,
   createSupabaseVideoRecordsRepository,
-} from "@repo/database";
+} from "@video-digest-nextjs/database";
 import {
   createBullMqVideoDigestWorker,
   videoDigestJobName,
   videoDigestQueueName,
   type VideoDigestWorkerHandle,
-} from "@repo/queue";
+} from "@video-digest-nextjs/queue";
 import {
   createBilibiliTranscriptProvider,
   createBilibiliVideoMetadataProvider,
@@ -21,7 +21,7 @@ import {
   createVideoMetadataProviderRegistry,
   createYoutubeTranscriptProvider,
   createYoutubeVideoMetadataProvider,
-} from "@repo/video-digest-core";
+} from "@video-digest-nextjs/video-digest-core";
 import { createClient } from "@supabase/supabase-js";
 import { config as loadEnvFile } from "dotenv";
 import { dirname, resolve, sep } from "node:path";

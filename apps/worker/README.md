@@ -13,7 +13,7 @@
 
 - 不暴露对外 HTTP API。
 - 不处理网页登录或 MCP 鉴权。
-- 不直接定义业务契约，跨层类型从 `@repo/job-contracts` 和 `@repo/queue` 获取。
+- 不直接定义业务契约，跨层类型从 `@video-digest-nextjs/job-contracts` 和 `@video-digest-nextjs/queue` 获取。
 
 ## 环境变量
 

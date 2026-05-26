@@ -1,77 +1,72 @@
 # Video Digest Next.js
 
-Video Digest 是一个基于 Next.js 的视频摘要产品。用户可以提交 YouTube 或 Bilibili 视频链接，系统异步提取字幕或音频转写，生成结构化摘要，并支持通过已验证邮箱投递结果。
+Video Digest 是一个基于 Next.js 的视频摘要产品。用户可以提交 YouTube 或 Bilibili 视频链接，系统异步读取视频元数据、提取字幕、生成结构化摘要，并支持把摘要投递到已验证邮箱。
 
-项目采用 MCP-first 架构：网站内部操作和外部 agent 都围绕同一组 MCP tools 工作，长任务通过队列交给 worker 执行，Postgres 保存任务、字幕、摘要、投递和用量记录。
+项目采用 MCP-first 架构：Web 端、MCP Token 调用和后续 npm MCP Server 都复用同一组 tool 契约；长任务交给 BullMQ worker 处理；Supabase Postgres 保存记录、字幕、摘要、邮箱、投递状态、MCP Token 审计和用量事件。
 
 ## 技术栈
 
-- Monorepo: Turborepo + pnpm workspace
+- Monorepo: pnpm workspace + Turborepo
 - Web: Next.js App Router + React + Tailwind CSS
-- Auth: Supabase Auth
-- Database: Supabase Postgres + SQL migrations + RLS
+- Auth / Database: Supabase Auth + Supabase Postgres + RLS
+- Worker: TypeScript Node.js + BullMQ + Redis
+- Video extraction: yt-dlp
+- Summary: OpenAI-compatible Chat Completions API，当前本地推荐 DeepSeek
+- Email: Resend API + Resend Webhook
 - Contracts: Zod
-- Worker: TypeScript Node.js，队列 producer/consumer 已接 BullMQ/Redis
+- Tests: Vitest
+- Package build: tsup + 共享 tsup 配置包
 
 ## 目录结构
 
 ```txt
 apps/
-  web/                 Next.js 网页应用，后续承载 /api/mcp
-  worker/              后台 worker 模板，后续消费视频处理队列
+  web/                 Next.js Web 应用，包含页面、server action、API routes 和 /api/mcp gateway
+  worker/              BullMQ 后台 worker，处理视频任务、摘要和邮件投递
 
 packages/
-  job-contracts/       跨层 zod schema、actor、job payload 和共享类型
-  database/            数据库类型、repository interface 和 Supabase 实现
-  video-digest-core/   核心业务服务，不绑定 Next.js、MCP 或 BullMQ
+  job-contracts/       跨层 Zod schema、actor、tool input/output 和共享类型
+  database/            数据库类型、repository interface 和 Supabase repository 实现
+  video-digest-core/   核心业务服务，不绑定 Next.js、MCP 协议、BullMQ 或 Supabase client
   mcp-tools/           MCP tool 适配层
-  queue/               队列名称、job 名称、payload、enqueue 接口和后续 BullMQ helper
+  mcp-server/          可发布到 npm 的 MCP stdio server
+  queue/               队列名称、payload、producer、worker helper 和 no-op queue
   eslint-config/       共享 ESLint 配置
   typescript-config/   共享 TypeScript 配置
+  tsup-config/         共享 tsup 构建配置
 
 docs/                  产品、架构、部署、数据库和后端模块文档
+scripts/               本地检查脚本
 supabase/migrations/   Supabase SQL migrations
 ```
 
-## 当前状态
+## 当前能力
 
-已完成：
+- 邮箱登录、记录列表、记录详情、邮箱设置、MCP Token 设置和用量页面。
+- 通过 Web 表单、`POST /api/records` 或 `POST /api/mcp` 创建视频摘要任务。
+- YouTube 元数据和字幕提取使用 `yt-dlp`。
+- 摘要生成使用 OpenAI-compatible API。
+- 邮件投递使用 Resend，并通过 `/api/webhooks/resend` 同步 `sent`、`delivered`、`delivery_delayed`、`bounced`、`complained` 等真实状态。
+- MCP Token 支持 scope 校验和调用审计。
+- npm MCP Server 包名为 `@video-digest-nextjs/mcp-server`，bin 为 `video-digest-mcp-server`。
 
-- Web 产品界面、Supabase 登录骨架，以及 Dashboard 创建真实任务。
-- 数据库表结构设计文档。
-- 后端模块骨架。
-- `video-records` 创建链路、记录读取页面/API、任务事件/用量事件写入，以及 BullMQ/Redis 队列 producer/consumer 边界：
-- 视频元数据 provider interface 骨架：
-- 字幕 provider interface 和写回骨架：
+Bilibili provider 仍是占位实现；ASR 链路尚未接入。
+
+## 处理链路
 
 ```txt
-create_video_digest_job
-  -> apps/web Dashboard server action 或 POST /api/records
-  -> @video-digest-nextjs/video-digest-core createVideoRecord()
-  -> @video-digest-nextjs/database VideoRecordsRepository
-  -> @video-digest-nextjs/database JobEventsRepository
-  -> @video-digest-nextjs/database UsageEventsRepository
-  -> @video-digest-nextjs/queue VideoDigestQueue
-  -> apps/worker job_events(fetching_metadata)
-  -> @video-digest-nextjs/video-digest-core fetchVideoMetadata()
-  -> YouTube yt-dlp provider / Bilibili placeholder
-  -> persistVideoMetadata()
-  -> @video-digest-nextjs/database VideoRecordsRepository.updateMetadataForUser()
-  -> apps/worker job_events(extracting_transcript)
-  -> @video-digest-nextjs/video-digest-core fetchTranscript()
-  -> YouTube transcript provider / Bilibili placeholder
-  -> persistTranscript()
-  -> @video-digest-nextjs/database TranscriptsRepository.create()
-  -> apps/web /records/[id] 读取最新字幕分段
-  -> transcript 输出模式 completed / summary 输出模式 summarizing
-  -> failed 时写入细分 error_code
+Web / MCP gateway / MCP Server
+  -> @video-digest-nextjs/mcp-tools
+  -> @video-digest-nextjs/video-digest-core
+  -> @video-digest-nextjs/database repositories
+  -> @video-digest-nextjs/queue
+  -> apps/worker
+  -> yt-dlp metadata
+  -> yt-dlp transcript
+  -> OpenAI-compatible summary
+  -> Resend email
+  -> Resend webhook updates delivery_records
 ```
-
-暂未完成：
-
-- Bilibili 元数据读取。
-- 真实 Bilibili 字幕读取。
-- ASR、LLM summary 和邮件投递实现。
 
 ## 本地开发
 
@@ -81,10 +76,22 @@ create_video_digest_job
 pnpm install
 ```
 
+运行本地环境检查：
+
+```bash
+pnpm check:local
+```
+
 启动 Web：
 
 ```bash
 pnpm --filter web dev
+```
+
+启动 worker：
+
+```bash
+pnpm --filter worker dev
 ```
 
 打开：
@@ -93,66 +100,64 @@ pnpm --filter web dev
 http://localhost:3000
 ```
 
-启动 worker 模板：
+## 环境变量
 
-```bash
-pnpm --filter worker dev
-```
-
-## Supabase 配置
-
-复制 Web 环境变量示例：
-
-```bash
-cp apps/web/env.local.example apps/web/.env.local
-```
-
-填写：
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
-```
-
-如果需要真实队列入队，再填写：
-
-```bash
-REDIS_URL=redis://localhost:6379
-```
-
-未填写 `REDIS_URL` 时，创建任务会使用 no-op 队列，不写入 Redis。
-
-BullMQ 建议 Redis 版本至少为 6.2.0；Redis 5.x 可用于早期本地验证，但会输出版本提醒。
-
-如果项目仍使用旧版 anon key，也可以填：
-
-```bash
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-```
-
-Supabase 控制台建议加入本地回调地址：
+Web 示例文件：
 
 ```txt
-http://localhost:3000/auth/callback
+apps/web/env.local.example
 ```
+
+Worker 示例文件：
+
+```txt
+apps/worker/env.local.example
+```
+
+常见必填项：
+
+```txt
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx
+REDIS_URL=redis://localhost:6379
+YTDLP_PATH=yt-dlp
+OPENAI_BASE_URL=https://api.deepseek.com
+OPENAI_API_KEY=sk_xxx
+OPENAI_SUMMARY_MODEL=deepseek-v4-flash
+RESEND_API_KEY=re_xxx
+RESEND_FROM_EMAIL="Video Digest <digest@example.com>"
+RESEND_WEBHOOK_SECRET=whsec_xxx
+WEB_APP_URL=http://localhost:3000
+```
+
+本地访问 YouTube 如需代理，只在 worker 环境配置：
+
+```txt
+LOCAL_PROXY_URL=http://127.0.0.1:10808
+```
+
+生产环境不配置 `LOCAL_PROXY_URL` 时会直连。
 
 ## 常用命令
 
 ```bash
 pnpm dev
-pnpm check:local
 pnpm build
+pnpm test
 pnpm lint
 pnpm check-types
 pnpm format
+pnpm check:local
 ```
 
 按 workspace 运行：
 
 ```bash
 pnpm --filter web dev
-pnpm --filter worker build
-pnpm --filter @video-digest-nextjs/video-digest-core check-types
+pnpm --filter worker test
+pnpm --filter @video-digest-nextjs/video-digest-core build
+pnpm --filter @video-digest-nextjs/mcp-server build
 ```
 
 ## 文档入口
@@ -171,14 +176,17 @@ pnpm --filter @video-digest-nextjs/video-digest-core check-types
 - [packages/database](packages/database/README.md)
 - [packages/video-digest-core](packages/video-digest-core/README.md)
 - [packages/mcp-tools](packages/mcp-tools/README.md)
+- [packages/mcp-server](packages/mcp-server/README.md)
 - [packages/queue](packages/queue/README.md)
 - [packages/eslint-config](packages/eslint-config/README.md)
 - [packages/typescript-config](packages/typescript-config/README.md)
+- [packages/tsup-config](packages/tsup-config/README.md)
 
 ## 开发原则
 
-- 写操作优先通过 MCP tool 或核心业务层收敛。
-- 页面读取可以直接查数据库模型。
+- 写操作优先通过 MCP tool 或 core service 收敛。
+- 页面读取可以直接走 repository/API，但不能绕开用户归属校验。
 - 长任务不在 Next.js request 生命周期内同步执行。
 - Core service 不依赖框架、协议、队列或具体数据库客户端。
+- Worker 使用 service role，Web 浏览器端永远不能暴露 service role key。
 - 邮件投递只允许发送到当前用户已验证邮箱。

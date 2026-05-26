@@ -1,71 +1,68 @@
 # @video-digest-nextjs/database
 
-数据库边界包。这里放数据库表类型、repository interface，以及后续 Supabase/Postgres 的具体实现。
+数据库边界包，负责业务表类型、repository interface 和 Supabase repository 实现。
 
 ## 职责
 
-- 描述业务表的 TypeScript 类型。
-- 定义 repository interface，供 core service 调用。
-- 隔离具体数据库客户端和查询实现。
-- 后续承载 Supabase service-role client、RLS 相关 helper 和 SQL 结果映射。
+- 描述 Supabase/Postgres 表的 TypeScript Row 类型。
+- 定义 core、worker、Web 和 MCP tools 共用的 repository interface。
+- 封装 Supabase 查询、错误映射和用户归属校验。
+- 隔离具体数据库客户端，避免 core service 直接依赖 Supabase。
 
 ## 边界
 
 - 不依赖 `@video-digest-nextjs/video-digest-core`。
-- 不写 MCP tool 或 worker 逻辑。
-- 不做复杂业务编排，只负责数据访问边界。
+- 不写 MCP tool、worker 流程或 UI 逻辑。
+- 不做复杂业务编排，只负责数据访问。
 
 ## 当前内容
 
 ```txt
 src/schema.ts
-  共享枚举和表字段类型。
+  共享枚举和字段类型。
 
 src/tables.ts
-  10 张业务表的 Row 类型和中文字段注释。
+  业务表 Row 类型。
 
-src/repositories/video-records.ts
-  VideoRecordsRepository 模板。
+src/repositories/
+  repository interface，覆盖视频记录、任务事件、用量事件、字幕、摘要、
+  邮箱、投递记录、MCP Token 和 MCP Token 调用事件。
 
-src/repositories/job-events.ts
-  JobEventsRepository，用于记录任务生命周期事件。
-
-src/repositories/usage-events.ts
-  UsageEventsRepository，用于记录任务创建、转写、邮件等用量事件。
-
-src/repositories/transcripts.ts
-  TranscriptsRepository，用于创建字幕主记录和分段记录。
-
-src/supabase/video-records-repository.ts
-  Supabase 版 video_records repository，实现 create、findByIdForUser、listForUser、updateStatusForUser、updateMetadataForUser。
-
-src/supabase/job-events-repository.ts
-  Supabase 版 job_events repository，实现 create。
-
-src/supabase/usage-events-repository.ts
-  Supabase 版 usage_events repository，实现 create。
-
-src/supabase/transcripts-repository.ts
-  Supabase 版 transcripts/transcript_segments repository，实现 create。
+src/supabase/
+  Supabase repository 实现和 DatabaseQueryError。
 ```
 
-## Migration
+## 主要 repository
 
-当前数据库入口：
+- `VideoRecordsRepository`
+- `JobEventsRepository`
+- `UsageEventsRepository`
+- `TranscriptsRepository`
+- `SummariesRepository`
+- `EmailAddressesRepository`
+- `DeliveryRecordsRepository`
+- `McpTokensRepository`
+- `McpTokenEventsRepository`
+
+## 数据库迁移
+
+当前 migrations：
 
 ```txt
 supabase/migrations/20260520213500_initial_video_digest_schema.sql
+supabase/migrations/20260524073000_resend_delivery_webhook.sql
+supabase/migrations/20260526093000_mcp_token_events.sql
 ```
 
-该 migration 包含：
+它们包含业务表、索引、约束、RLS、Resend Webhook 字段和 MCP Token 调用审计字段。
 
-- 10 张业务表。
-- check 约束和索引。
-- Row Level Security。
-- 中文 table/column comment。
-- `updated_at` 自动更新时间 trigger。
+## 构建
 
-`mcp_tokens` 含 `token_hash`，暂不开放普通用户直连读取策略。后续设置页应通过服务端接口或安全视图读取 token 列表。
+包使用 tsup 构建，配置来自 `@video-digest-nextjs/tsup-config`，本包保留 `tsup` devDependency 以提供本包脚本可执行文件。
+
+```bash
+pnpm --filter @video-digest-nextjs/database build
+```
 
 ## 常用命令
 

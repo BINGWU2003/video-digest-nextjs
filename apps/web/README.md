@@ -1,23 +1,22 @@
-# 视频摘要 Web
+# Web 应用
 
-这是视频摘要产品的 Next.js Web 应用。
+`apps/web` 是 Video Digest 的 Next.js App Router 应用，负责用户界面、登录态、站内 API、MCP gateway、邮箱设置、MCP Token 设置、Resend Webhook 和用量展示。
 
 ## 职责
 
-- 提供登录、Dashboard、Records、Record Detail 和设置页。
-- 承载后续 `/api/mcp` MCP endpoint。
-- 网站内部写操作会通过 MCP tool 或服务端 action 进入后端能力层。
-- 页面读取用户记录、摘要、字幕、邮箱和用量数据。
+- 提供登录、工作台、记录列表、记录详情、邮箱设置、MCP Token 和用量页面。
+- 通过 server action 或 API 创建视频摘要任务。
+- 暴露 `/api/mcp`，让网站 MCP Token 可以调用 tool。
+- 暴露 `/api/webhooks/resend`，接收 Resend 邮件事件并回写投递状态。
+- 页面读取用户记录、字幕、摘要、邮箱、投递和用量数据。
 
 ## 边界
 
-- 不在请求生命周期内执行视频下载、音频提取、ASR 或长时间摘要任务。
-- 不直接绕过业务层写核心任务状态。
-- 长任务只创建记录和入队，实际处理交给 `apps/worker`。
+- 不在请求生命周期内执行 yt-dlp、摘要生成或邮件重试这类长任务。
+- 不把 `SUPABASE_SERVICE_ROLE_KEY` 暴露到浏览器。
+- 不直接处理后台任务流水；创建记录后交给 `apps/worker`。
 
 ## 本地启动
-
-在仓库根目录运行：
 
 ```bash
 pnpm --filter web dev
@@ -25,106 +24,55 @@ pnpm --filter web dev
 
 打开 [http://localhost:3000](http://localhost:3000)。
 
-## Supabase 登录配置
+## 环境变量
 
-复制环境变量示例：
+复制示例：
 
 ```bash
 cp apps/web/env.local.example apps/web/.env.local
 ```
 
-然后填入 Supabase 项目配置：
+常用配置：
 
-```bash
+```txt
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
-```
-
-如果希望 `/api/mcp` 创建任务后真实投递到 BullMQ，请配置 Redis：
-
-```bash
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx
 REDIS_URL=redis://localhost:6379
-```
-
-未配置 `REDIS_URL` 时，Web 会使用 no-op 队列实现：创建链路仍可运行，但不会写入 Redis。
-
-如果你的 Supabase 项目仍使用旧版 anon key，也可以填：
-
-```bash
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-```
-
-登录相关页面和路由：
-
-- `/login`：邮箱密码登录/注册
-- `/auth/callback`：邮箱确认和 PKCE 回调
-- `/dashboard`、`/records`、`/settings/*`：需要登录后访问
-- `/api/mcp`：MCP tool gateway 模板，当前支持 `create_video_digest_job`
-- `/api/records`：创建视频任务，或读取当前用户的视频记录列表，支持 `status`、`platform`、`limit`、`offset`
-- `/api/records/[id]`：读取当前用户的一条视频记录详情
-- `/api/webhooks/resend`：接收 Resend 邮件事件，回写真实投递状态
-
-Supabase 控制台里建议把本地回调地址加入允许列表：
-
-```txt
-http://localhost:3000/auth/callback
-```
-
-## 常用命令
-
-```bash
-pnpm --filter web dev
-pnpm --filter web lint
-pnpm --filter web check-types
-pnpm --filter web build
-```
-
-## API 模板
-
-当前 Dashboard 已通过 server action 调用 `@video-digest-nextjs/video-digest-core` 创建真实任务；`/records` 和 `/records/[id]` 会读取 Supabase 中的真实 `video_records` 与最新字幕分段。`/api/mcp` 先实现最小 tool gateway，不是完整 MCP 协议实现。它接受当前登录用户 session，并调用后端模块创建一条真实 `video_records` 记录，同时写入 `job_events` 的排队事件、`usage_events` 的创建用量，并调用队列 enqueue 边界。
-
-队列实现由 `REDIS_URL` 决定：配置后使用 BullMQ 真实入队，未配置时使用 no-op 队列。
-
-Resend Webhook 需要在 Web 环境配置 `RESEND_WEBHOOK_SECRET`。在 Resend 控制台创建 endpoint 时填：
-
-```txt
-https://your-domain.com/api/webhooks/resend
-```
-
-本地调试可用 ngrok、Cloudflare Tunnel 等工具把 `localhost:3000` 暴露给 Resend。
-
-邮箱验证邮件也由 Web 服务通过 Resend 发送，需要配置：
-
-```txt
+RESEND_WEBHOOK_SECRET=whsec_xxx
 RESEND_API_KEY=re_xxx
 RESEND_FROM_EMAIL="Video Digest <digest@example.com>"
 WEB_APP_URL=http://localhost:3000
 ```
 
-`WEB_APP_URL` 可选；配置后验证邮件会使用它生成点击链接，生产环境建议填正式 Web 域名。
+`REDIS_URL` 未配置时，Web 会使用 no-op queue：创建链路仍能跑通，但不会写入 Redis。
 
-请求示例：
+`OPENAI_API_KEY` 不放在 Web 环境变量里；摘要生成由 worker 执行。
 
-```json
-{
-  "tool": "create_video_digest_job",
-  "input": {
-    "url": "https://www.youtube.com/watch?v=...",
-    "platform": "auto",
-    "outputMode": "summary",
-    "fallbackToAudio": false,
-    "sendEmail": false
-  }
-}
-```
+## 路由
 
-记录列表：
+- `/login`：邮箱密码登录/注册
+- `/auth/callback`：邮箱确认和 PKCE 回调
+- `/dashboard`：创建视频摘要任务
+- `/records`：记录列表，支持分页和筛选
+- `/records/[id]`：记录详情、字幕、摘要、投递状态、重试和取消操作
+- `/settings/emails`：邮箱管理和默认邮箱设置
+- `/settings/mcp-tokens`：MCP Token 创建、吊销和 scope 设置
+- `/settings/usage`：用量事件查看
+- `/api/records`：记录创建和列表查询
+- `/api/records/[id]`：记录详情查询
+- `/api/mcp`：MCP tool HTTP gateway
+- `/api/webhooks/resend`：Resend Webhook
+
+Supabase 控制台建议加入本地回调地址：
 
 ```txt
-GET /api/records?status=queued&platform=youtube&limit=20&offset=0
+http://localhost:3000/auth/callback
 ```
 
-创建记录：
+## API 示例
+
+创建任务：
 
 ```txt
 POST /api/records
@@ -134,16 +82,50 @@ POST /api/records
 {
   "url": "https://www.youtube.com/watch?v=...",
   "platform": "auto",
-  "outputMode": "transcript",
+  "outputMode": "summary",
   "fallbackToAudio": false,
   "sendEmail": false
 }
 ```
 
-记录详情：
+查询记录列表：
 
 ```txt
-GET /api/records/{recordId}
+GET /api/records?status=queued&platform=youtube&limit=20&offset=0
+```
+
+调用 MCP gateway：
+
+```json
+{
+  "tool": "create_video_digest_job",
+  "input": {
+    "url": "https://www.youtube.com/watch?v=...",
+    "platform": "auto",
+    "outputMode": "summary_and_email",
+    "fallbackToAudio": false,
+    "sendEmail": true
+  }
+}
+```
+
+## Resend Webhook
+
+Resend endpoint 填：
+
+```txt
+https://your-domain.com/api/webhooks/resend
+```
+
+本地调试可以用 ngrok 或 Cloudflare Tunnel 暴露 `localhost:3000`。Webhook 签名密钥配置到 `RESEND_WEBHOOK_SECRET`。
+
+## 常用命令
+
+```bash
+pnpm --filter web dev
+pnpm --filter web build
+pnpm --filter web lint
+pnpm --filter web check-types
 ```
 
 ## 相关文档

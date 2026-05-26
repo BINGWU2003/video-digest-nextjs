@@ -1,8 +1,13 @@
 # @video-digest-nextjs/mcp-server
 
-Video Digest 的标准 MCP stdio 服务。它会通过网站侧的 `/api/mcp`
-HTTP 网关转发请求，让 MCP 客户端可以使用网站生成的 MCP Token 创建视频摘要任务、
-读取视频摘要记录、字幕、摘要和邮件投递状态。
+Video Digest 的标准 MCP stdio 服务。它通过网站侧 `/api/mcp` HTTP gateway 转发请求，让 MCP 客户端可以使用网站生成的 MCP Token 创建视频摘要任务、读取视频摘要记录、字幕、摘要和邮件投递状态。
+
+## 包信息
+
+- npm 包名：`@video-digest-nextjs/mcp-server`
+- CLI bin：`video-digest-mcp-server`
+- 运行方式：MCP stdio server
+- 后端入口：`VIDEO_DIGEST_WEB_APP_URL/api/mcp`
 
 ## 本地使用
 
@@ -27,12 +32,16 @@ node packages/mcp-server/dist/index.js
 
 ## MCP 客户端配置
 
+本地源码方式：
+
 ```json
 {
   "mcpServers": {
     "video-digest": {
       "command": "node",
-      "args": ["D:/code/next-project/video-digest-nextjs/packages/mcp-server/dist/index.js"],
+      "args": [
+        "D:/code/next-project/video-digest-nextjs/packages/mcp-server/dist/index.js"
+      ],
       "env": {
         "VIDEO_DIGEST_WEB_APP_URL": "http://localhost:3000",
         "VIDEO_DIGEST_MCP_TOKEN": "mcp_xxx"
@@ -42,8 +51,21 @@ node packages/mcp-server/dist/index.js
 }
 ```
 
-如果后续发布到 npm，客户端配置里的 `command` 可以改成包安装后的命令，例如
-`video-digest-mcp-server`。
+发布到 npm 后，客户端配置可改为：
+
+```json
+{
+  "mcpServers": {
+    "video-digest": {
+      "command": "video-digest-mcp-server",
+      "env": {
+        "VIDEO_DIGEST_WEB_APP_URL": "https://your-domain.com",
+        "VIDEO_DIGEST_MCP_TOKEN": "mcp_xxx"
+      }
+    }
+  }
+}
+```
 
 ## 工具
 
@@ -52,7 +74,25 @@ node packages/mcp-server/dist/index.js
 
 ## 权限范围
 
-MCP Token 需要包含对应的网站权限范围：
+MCP Token 需要包含对应 scope：
 
 - `digest:create`
 - `digest:read`
+
+## 构建和测试
+
+包使用 tsup 构建，测试使用 Vitest。
+
+```bash
+pnpm --filter @video-digest-nextjs/mcp-server build
+pnpm --filter @video-digest-nextjs/mcp-server test
+```
+
+## 常用命令
+
+```bash
+pnpm --filter @video-digest-nextjs/mcp-server lint
+pnpm --filter @video-digest-nextjs/mcp-server check-types
+pnpm --filter @video-digest-nextjs/mcp-server build
+pnpm --filter @video-digest-nextjs/mcp-server test
+```

@@ -1,18 +1,19 @@
 # @video-digest-nextjs/job-contracts
 
-跨层契约包。这里放输入输出 schema、actor、job payload 和跨包共享类型。
+跨层契约包，放运行时可校验的 Zod schema、actor、tool input/output 和共享类型。
 
 ## 职责
 
-- 使用 Zod 定义可运行时校验的输入输出契约。
-- 为 MCP tools、core service、queue 和 worker 提供一致类型。
-- 保存不依赖具体实现的枚举和 payload 结构。
+- 为 Web、MCP gateway、MCP Server、core、queue 和 worker 提供一致契约。
+- 使用 Zod 做输入输出校验。
+- 保存不依赖具体实现的枚举、状态和 payload 结构。
 
 ## 边界
 
-- 不依赖数据库、core、MCP 或 worker。
+- 不访问数据库。
+- 不调用外部服务。
 - 不做业务编排。
-- 不访问环境变量和外部服务。
+- 不依赖 Web、worker、MCP SDK 或 Supabase client。
 
 ## 当前内容
 
@@ -21,6 +22,39 @@ src/video-digest.ts
   actorSchema
   createVideoDigestJobInputSchema
   createVideoDigestJobOutputSchema
+  getVideoDigestRecordInputSchema
+  videoDigestRecordOutputSchema
+```
+
+## Tool 输入输出
+
+`create_video_digest_job` 输入：
+
+- `url`
+- `platform`: `auto` / `youtube` / `bilibili`
+- `outputMode`: `transcript` / `summary` / `summary_and_email`
+- `fallbackToAudio`
+- `sendEmail`
+
+`get_video_digest_record` 输入：
+
+- `recordId`
+- `segmentLimit`
+
+## 使用示例
+
+```ts
+import { createVideoDigestJobInputSchema } from "@video-digest-nextjs/job-contracts";
+
+const input = createVideoDigestJobInputSchema.parse(payload);
+```
+
+## 构建
+
+包使用 tsup 构建，配置来自 `@video-digest-nextjs/tsup-config`。
+
+```bash
+pnpm --filter @video-digest-nextjs/job-contracts build
 ```
 
 ## 常用命令
@@ -29,12 +63,4 @@ src/video-digest.ts
 pnpm --filter @video-digest-nextjs/job-contracts lint
 pnpm --filter @video-digest-nextjs/job-contracts check-types
 pnpm --filter @video-digest-nextjs/job-contracts build
-```
-
-## 使用示例
-
-```ts
-import { createVideoDigestJobInputSchema } from "@video-digest-nextjs/job-contracts";
-
-const input = createVideoDigestJobInputSchema.parse(payload);
 ```

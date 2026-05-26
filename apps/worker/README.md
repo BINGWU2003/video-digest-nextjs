@@ -1,23 +1,31 @@
-# Video Digest Worker
+# Worker 应用
 
-常驻后台 worker 应用。当前已接入 BullMQ worker 消费入口，先消费视频摘要任务、更新任务状态并写入任务事件，后续再接真实视频处理。
+`apps/worker` 是常驻后台进程，负责消费 BullMQ 中的 `video-digest` 队列任务，并把视频处理结果写回 Supabase。
 
 ## 职责
 
-- 监听 `video-digest` 队列。
-- 消费由 Web 或 MCP tool 创建的任务。
-- 调用核心业务服务完成字幕提取、音频转写、摘要生成和邮件投递。
-- 将任务状态、字幕、摘要、投递记录和失败原因写回 Postgres。
+- 监听 `video-digest` 队列中的 `process-video-digest` job。
+- 使用 yt-dlp 读取 YouTube 元数据和字幕。
+- 调用 OpenAI-compatible API 生成结构化摘要。
+- 调用 Resend 投递摘要邮件。
+- 写回 `video_records`、`job_events`、`usage_events`、`transcripts`、`summaries` 和 `delivery_records`。
 
 ## 边界
 
-- 不暴露对外 HTTP API。
-- 不处理网页登录或 MCP 鉴权。
-- 不直接定义业务契约，跨层类型从 `@video-digest-nextjs/job-contracts` 和 `@video-digest-nextjs/queue` 获取。
+- 不暴露 HTTP API。
+- 不处理网页登录、MCP Token 校验或 Resend Webhook。
+- 不直接定义跨层契约，类型来自 packages。
+- 使用 `SUPABASE_SERVICE_ROLE_KEY`，只允许在后台环境运行。
 
 ## 环境变量
 
-本地运行前需要配置：
+复制示例：
+
+```bash
+cp apps/worker/env.local.example apps/worker/.env.local
+```
+
+常用配置：
 
 ```txt
 REDIS_URL=redis://localhost:6379
@@ -27,106 +35,74 @@ YTDLP_PATH=yt-dlp
 OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_API_KEY=sk_xxx
 OPENAI_SUMMARY_MODEL=deepseek-v4-flash
+OPENAI_SUMMARY_MAX_TOKENS=4000
 RESEND_API_KEY=re_xxx
 RESEND_FROM_EMAIL="Video Digest <digest@example.com>"
 WEB_APP_URL=http://localhost:3000
 ```
 
-开发模式会自动读取 `apps/worker/.env.local`。也可以直接通过系统环境变量注入同名配置。
-
-`SUPABASE_SERVICE_ROLE_KEY` 只允许在后台 worker 使用，不能暴露给浏览器。
-
-`YTDLP_PATH` 默认可以写 `yt-dlp`，表示使用系统 PATH 中的 yt-dlp；Docker/Railway 部署时可以写成 `/usr/local/bin/yt-dlp`。
-
-摘要任务使用 OpenAI-compatible Chat Completions API。`OPENAI_API_KEY` 只在 `summary` 或 `summary_and_email` 输出模式进入摘要阶段时需要。DeepSeek 可使用：
-
-```txt
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_SUMMARY_MODEL=gpt-4o-mini
-OPENAI_SUMMARY_MAX_TOKENS=4000
-```
-
-邮件投递使用 Resend HTTP API。`RESEND_API_KEY` 和 `RESEND_FROM_EMAIL` 只在 `summary_and_email` 或 `sendEmail=true` 任务进入投递阶段时需要；发件地址必须来自 Resend 已验证域名。
-
-`WEB_APP_URL` 可选。配置后摘要邮件会附带站内记录链接，例如 `https://your-app.example.com/records/{recordId}`；不配置时邮件仍会附带源视频链接。
-
-本地开发如需让 worker 和 yt-dlp 走代理，可以额外配置：
+本地访问 YouTube 如需代理：
 
 ```txt
 LOCAL_PROXY_URL=http://127.0.0.1:10808
 ```
 
-生产环境不配置 `LOCAL_PROXY_URL` 时，worker 会直连外网。
+生产环境不配置 `LOCAL_PROXY_URL` 时会直连。
 
-BullMQ 建议 Redis 版本至少为 6.2.0。Redis 5.x 可用于早期本地验证，但会输出版本提醒。
+`YTDLP_PATH` 默认可写 `yt-dlp`；Docker/Railway 这类环境可写绝对路径，例如 `/usr/local/bin/yt-dlp`。
 
-Node.js 20 没有原生 WebSocket，worker 通过 `ws` 包为 Supabase client 提供 Realtime transport。当前 worker 只使用数据库写入能力，不主动订阅 Realtime。
-
-## 当前状态
-
-当前 worker 会消费 `video-digest` 队列里的 `process-video-digest` job：
+## 处理流程
 
 ```txt
-src/index.ts
-  -> startWorker()
+startWorker()
   -> createBullMqVideoDigestWorker()
-  -> 更新 video_records.status = fetching_metadata
-  -> 写入 job_events(fetching_metadata)
+  -> fetching_metadata
   -> fetchVideoMetadata()
   -> persistVideoMetadata()
-  -> 更新 video_records.status = extracting_transcript
-  -> 写入 job_events(extracting_transcript)
+  -> extracting_transcript
   -> fetchTranscript()
   -> persistTranscript()
-  -> transcript 输出模式更新 video_records.status = completed
-  -> summary 输出模式更新 video_records.status = summarizing
+  -> transcript 模式 completed
+  -> summary / summary_and_email 模式 summarizing
   -> generateSummary()
   -> persistSummary()
-  -> summary 输出模式更新 video_records.status = completed
-  -> summary_and_email 输出模式更新 video_records.status = delivering
-  -> 查询默认 verified 邮箱
+  -> delivering
+  -> 查询默认已验证邮箱
   -> 创建 delivery_records(queued)
-  -> 调用 Resend 投递摘要邮件
-  -> Resend 接收成功时更新 delivery_records(sent) 和 provider_message_id
-  -> 更新 video_records.status = completed
-  -> 失败时更新 video_records.status = failed
-  -> 失败时写入 job_events(failed)
+  -> Resend sendEmail()
+  -> delivery_records(sent)
+  -> video_records(completed)
 ```
 
-当前 YouTube 元数据 provider 使用 `yt-dlp` 读取标题、作者、时长和封面；Bilibili provider 仍是占位实现，因此 Bilibili 任务会在 `fetchVideoMetadata()` 阶段触发失败链路。这用于验证失败状态和失败事件可以完整落库。
+`delivery_records.status = sent` 只表示 Resend API 已接收邮件。真实状态由 Web 的 `/api/webhooks/resend` 回写，例如 `delivered`、`delivery_delayed`、`bounced`、`complained`。
 
-当前 YouTube 字幕 provider 只通过 `yt-dlp` 下载 `json3` 或 `vtt` 字幕文件，再将字幕全文和分段写入 `transcripts`、`transcript_segments`。Bilibili 字幕 provider 仍是占位实现，因此 Bilibili 任务会在字幕阶段触发失败链路。
+## 错误码
 
-当前摘要 provider 使用 OpenAI-compatible API 生成结构化 JSON，再写入 `summaries` 表。`summary_and_email` 任务会在摘要成功后进入 `delivering`，然后通过 Resend 投递到用户默认已验证邮箱。
+| 错误码                      | 含义                       |
+| --------------------------- | -------------------------- |
+| `email_delivery_failed`     | Resend 邮件投递失败        |
+| `email_recipient_not_found` | 未找到默认已验证收件邮箱   |
+| `metadata_fetch_failed`     | 视频元数据读取失败         |
+| `provider_unavailable`      | 当前平台 provider 尚未接入 |
+| `summary_generation_failed` | 摘要生成失败               |
+| `transcript_fetch_failed`   | 字幕读取失败               |
+| `transcript_not_found`      | 视频没有可用公开字幕       |
+| `worker_processing_failed`  | 其他未分类 worker 错误     |
 
-`delivery_records.status = sent` 只表示 Resend API 已接收邮件。真实收件方状态由 Web 应用的 `/api/webhooks/resend` 接收 Resend Webhook 后回写，例如 `delivered`、`delivery_delayed`、`bounced` 或 `complained`。
+## 当前限制
 
-失败时会同时更新 `video_records.error_code` 和 `job_events.metadata.errorCode`：
-
-| 错误码 | 含义 |
-| --- | --- |
-| `email_delivery_failed` | Resend 邮件投递失败 |
-| `email_recipient_not_found` | 未找到默认已验证收件邮箱 |
-| `metadata_fetch_failed` | 视频元数据 provider 已接入，但读取平台元数据失败 |
-| `provider_unavailable` | 当前平台的元数据或字幕 provider 尚未接入 |
-| `summary_generation_failed` | 摘要 provider 已接入，但模型调用或结构化输出失败 |
-| `transcript_fetch_failed` | 字幕 provider 已接入，但读取字幕内容失败 |
-| `transcript_not_found` | 平台视频没有可用公开字幕 |
-| `worker_processing_failed` | 其他未分类的 worker 处理错误 |
+- YouTube provider 已接 yt-dlp。
+- Bilibili provider 仍是占位实现。
+- ASR 链路尚未接入，`fallbackToAudio` 仍会进入失败恢复链路。
 
 ## 常用命令
 
 ```bash
 pnpm check:local
 pnpm --filter worker dev
-pnpm --filter worker lint
-pnpm --filter worker check-types
 pnpm --filter worker build
 pnpm --filter worker start
+pnpm --filter worker lint
+pnpm --filter worker check-types
+pnpm --filter worker test
 ```
-
-## 后续计划
-
-1. 接入 Bilibili 元数据 provider。
-2. 接入邮箱设置页真实增删改和验证邮件。
-3. 增加更长字幕的分段摘要策略。

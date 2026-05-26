@@ -1,72 +1,79 @@
 # @video-digest-nextjs/video-digest-core
 
-视频摘要核心业务包。这里放真实业务编排，但不绑定 Next.js、MCP 协议、BullMQ 或具体数据库客户端。
+视频摘要核心业务包。这里放业务编排和 provider 适配，但不绑定 Next.js、MCP 协议、BullMQ 或具体数据库客户端。
 
 ## 职责
 
-- 创建和更新视频处理记录。
-- 后续编排字幕提取、音频转写、摘要生成和投递。
-- 校验业务输入和 actor 归属。
-- 通过 repository interface 读写数据。
-- 通过队列 interface 投递后台处理任务。
+- 创建、取消、重试视频摘要任务。
+- 读取和持久化视频元数据。
+- 读取和持久化字幕。
+- 调用摘要 provider 生成结构化摘要。
+- 生成摘要邮件内容。
+- 通过 repository 和 queue interface 与外部基础设施交互。
 
 ## 边界
 
 - 不直接访问 Supabase client。
-- 不直接注册 MCP tools。
+- 不注册 MCP tools。
 - 不启动 worker。
-- 不依赖 Next.js request、cookies 或 route handler。
+- 不读取 Next.js request、cookies 或 route handler。
 
-## 当前内容
+## 当前模块
 
 ```txt
-src/modules/video-records/create-video-record.ts
+src/modules/video-records/
   createVideoRecord()
-  平台识别
-  URL 归一化
-  actor 到 created_by_type 的映射
-  创建 video_records 后追加 queued 任务事件和 job_created 用量事件
-  调用 VideoDigestQueue 投递后台处理 payload
+  cancelVideoDigestJob()
+  retryVideoDigestJob()
 
 src/modules/video-metadata/
-  VideoMetadata
-  VideoMetadataProvider
   fetchVideoMetadata()
   persistVideoMetadata()
-  createVideoMetadataProviderRegistry()
   createYoutubeVideoMetadataProvider()
   createBilibiliVideoMetadataProvider()
 
 src/modules/transcripts/
-  TranscriptResult
-  TranscriptProvider
   fetchTranscript()
   persistTranscript()
-  createTranscriptProviderRegistry()
   createYoutubeTranscriptProvider()
   createBilibiliTranscriptProvider()
 
 src/modules/summaries/
-  GeneratedSummary
-  SummaryProvider
   generateSummary()
   persistSummary()
   createOpenAICompatibleSummaryProvider()
+
+src/modules/email-delivery/
+  EmailDeliveryProvider
+  createSummaryEmailSubject()
+  createSummaryEmailText()
+  createSummaryEmailHtml()
 ```
 
-当前 YouTube 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download` 读取标题、作者、时长和封面，不需要 API key。Bilibili provider 仍是占位实现，会抛出 `VideoMetadataProviderUnavailableError`。`persistVideoMetadata()` 已经能把 provider 返回的标题、作者、时长和封面写回 `video_records`。
+## Provider 状态
 
-当前 YouTube 字幕 provider 只通过 `yt-dlp` 下载 `json3` 或 `vtt` 字幕文件，再由 Node 解析为分段字幕，不需要 API key。`persistTranscript()` 已经能创建 `transcripts` 主记录和 `transcript_segments` 分段记录。Bilibili 字幕 provider 仍是占位实现，会抛出 `TranscriptProviderUnavailableError`。
-
-当前摘要 provider 使用 OpenAI-compatible Chat Completions API，要求模型返回结构化 JSON。DeepSeek 和其他兼容服务统一使用 `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_SUMMARY_MODEL`。`persistSummary()` 已经能把摘要标题、短概览、关键要点、时间线、结论和 Markdown 写入 `summaries`。
+- YouTube 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download`。
+- YouTube 字幕 provider 使用 `yt-dlp` 下载 `json3` 或 `vtt` 字幕并解析分段。
+- Bilibili 元数据和字幕 provider 仍是占位实现。
+- 摘要 provider 使用 OpenAI-compatible Chat Completions API。
+- 邮件投递 provider interface 由 worker 侧 Resend 实现注入。
 
 ## 调用方向
 
 ```txt
-mcp-tools / server action / worker
+Web / MCP tools / worker
   -> @video-digest-nextjs/video-digest-core
-  -> @video-digest-nextjs/database repository interface
-  -> @video-digest-nextjs/queue queue interface
+  -> repository interface
+  -> queue interface
+```
+
+## 构建和测试
+
+包使用 tsup 构建，测试使用 Vitest。
+
+```bash
+pnpm --filter @video-digest-nextjs/video-digest-core build
+pnpm --filter @video-digest-nextjs/video-digest-core test
 ```
 
 ## 常用命令
@@ -75,9 +82,11 @@ mcp-tools / server action / worker
 pnpm --filter @video-digest-nextjs/video-digest-core lint
 pnpm --filter @video-digest-nextjs/video-digest-core check-types
 pnpm --filter @video-digest-nextjs/video-digest-core build
+pnpm --filter @video-digest-nextjs/video-digest-core test
 ```
 
-## 后续计划
+## 当前限制
 
-1. 接入 Bilibili 元数据 provider。
-2. 增加长字幕分段摘要策略。
+- Bilibili 仍未接真实 provider。
+- ASR 未接入。
+- 长字幕分段摘要策略仍可继续增强。

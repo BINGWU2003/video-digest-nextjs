@@ -54,7 +54,8 @@ src/modules/email-delivery/
 
 - YouTube 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download`。
 - YouTube 字幕 provider 使用 `yt-dlp` 下载 `json3` 或 `vtt` 字幕并解析分段。
-- Bilibili 元数据和字幕 provider 仍是占位实现。
+- Bilibili 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download`。
+- Bilibili 字幕 provider 使用 `yt-dlp` 下载公开字幕；`fallbackToAudio` 开启时改为下载 audio-only 文件并调用 OpenAI-compatible Audio Transcriptions API。
 - 摘要 provider 使用 OpenAI-compatible Chat Completions API。
 - 邮件投递 provider interface 由 worker 侧 Resend 实现注入。
 
@@ -87,6 +88,5 @@ pnpm --filter @video-digest-nextjs/video-digest-core test
 
 ## 当前限制
 
-- Bilibili 仍未接真实 provider。
-- ASR 未接入。
+- 长视频音频转写尚未做分片，可能受 ASR 服务文件大小和超时限制。
 - 长字幕分段摘要策略仍可继续增强。

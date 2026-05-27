@@ -14,6 +14,9 @@ import type {
 import { TranscriptFetchError, TranscriptNotFoundError } from "../types.js";
 
 const bilibiliYtDlpTimeoutMs = 120_000;
+const bilibiliAsrTimeoutMs = 600_000;
+const defaultAsrBaseUrl = "https://api.openai.com/v1";
+const defaultAsrModel = "whisper-1";
 const ytDlpSubtitleLanguages = "zh.*,en.*";
 const execFileAsync = promisify(execFile);
 
@@ -29,13 +32,97 @@ const bilibiliJsonTranscriptSchema = z.object({
     .optional(),
 });
 
+const asrTranscriptionResponseSchema = z.object({
+  language: z.string().min(1).nullable().optional(),
+  segments: z
+    .array(
+      z.object({
+        end: z.number().nonnegative().nullable().optional(),
+        start: z.number().nonnegative().nullable().optional(),
+        text: z.string().optional(),
+      }),
+    )
+    .optional(),
+  text: z.string().optional(),
+});
+
 export function createBilibiliTranscriptProvider(): TranscriptProvider {
   return {
     platform: "bilibili",
     async fetchTranscript(input) {
+      if (input.fallbackToAudio) {
+        return fetchBilibiliTranscriptWithAudioAsr(input);
+      }
+
       return fetchBilibiliTranscriptWithYtDlp(input);
     },
   };
+}
+
+async function fetchBilibiliTranscriptWithAudioAsr(
+  input: FetchTranscriptInput,
+): Promise<TranscriptResult> {
+  const ytDlpPath = process.env.YTDLP_PATH ?? "yt-dlp";
+  const tempDirectory = await mkdtemp(join(tmpdir(), "video-digest-bili-audio-"));
+  let ytDlpError: unknown = null;
+
+  try {
+    try {
+      await runYtDlpAudioDownload({
+        outputTemplate: join(tempDirectory, "%(id)s.%(ext)s"),
+        sourceUrl: input.sourceUrl,
+        ytDlpPath,
+      });
+    } catch (caught) {
+      ytDlpError = caught;
+    }
+
+    const audioFile = await findBestYtDlpAudioFile(tempDirectory);
+
+    if (!audioFile) {
+      if (ytDlpError) {
+        throw new TranscriptFetchError(
+          "bilibili",
+          `yt-dlp 音频下载失败：${getYtDlpErrorDetail(ytDlpError)}`,
+          ytDlpError,
+        );
+      }
+
+      throw new TranscriptNotFoundError(
+        "bilibili",
+        "yt-dlp 未下载到可用于转写的音频文件。",
+      );
+    }
+
+    const transcription = await transcribeAudioWithOpenAICompatibleApi(audioFile);
+
+    if (!transcription.plainText?.trim()) {
+      throw new TranscriptNotFoundError(
+        "bilibili",
+        "ASR 未返回可用转写文本。",
+      );
+    }
+
+    return transcription;
+  } catch (caught) {
+    if (
+      caught instanceof TranscriptFetchError ||
+      caught instanceof TranscriptNotFoundError
+    ) {
+      throw caught;
+    }
+
+    throw new TranscriptFetchError(
+      "bilibili",
+      "Bilibili 音频转写失败。",
+      caught,
+    );
+  } finally {
+    await rm(tempDirectory, {
+      force: true,
+      recursive: true,
+    });
+  }
 }
 
 async function fetchBilibiliTranscriptWithYtDlp(
@@ -141,6 +228,36 @@ async function runYtDlpSubtitleDownload(input: RunYtDlpSubtitleDownloadInput) {
   });
 }
 
+type RunYtDlpAudioDownloadInput = {
+  outputTemplate: string;
+  sourceUrl: string;
+  ytDlpPath: string;
+};
+
+async function runYtDlpAudioDownload(input: RunYtDlpAudioDownloadInput) {
+  const args = [
+    "--no-playlist",
+    "--format",
+    "bestaudio[ext=m4a]/bestaudio",
+    "--output",
+    input.outputTemplate,
+  ];
+  const proxyUrl = process.env.LOCAL_PROXY_URL;
+
+  if (proxyUrl) {
+    args.push("--proxy", proxyUrl);
+  }
+
+  args.push(input.sourceUrl);
+
+  await execFileAsync(input.ytDlpPath, args, {
+    env: createYtDlpEnvironment(proxyUrl),
+    maxBuffer: 1024 * 1024 * 10,
+    timeout: bilibiliYtDlpTimeoutMs,
+    windowsHide: true,
+  });
+}
+
 function createYtDlpEnvironment(proxyUrl: string | undefined) {
   if (!proxyUrl) {
     return process.env;
@@ -152,6 +269,213 @@ function createYtDlpEnvironment(proxyUrl: string | undefined) {
     HTTP_PROXY: process.env.HTTP_PROXY ?? proxyUrl,
     HTTPS_PROXY: process.env.HTTPS_PROXY ?? proxyUrl,
   };
+}
+
+type YtDlpAudioFile = {
+  extension: string;
+  path: string;
+  priority: number;
+};
+
+async function findBestYtDlpAudioFile(
+  directory: string,
+): Promise<YtDlpAudioFile | null> {
+  const fileNames = await readdir(directory);
+  const audioFiles = fileNames
+    .map((fileName) => toYtDlpAudioFile(directory, fileName))
+    .filter((file): file is YtDlpAudioFile => file !== null)
+    .sort((left, right) => left.priority - right.priority);
+
+  return audioFiles[0] ?? null;
+}
+
+function toYtDlpAudioFile(
+  directory: string,
+  fileName: string,
+): YtDlpAudioFile | null {
+  const match = /\.([^.]+)$/u.exec(fileName);
+
+  if (!match) {
+    return null;
+  }
+
+  const extension = match[1]!.toLowerCase();
+  const supportedExtensions = new Set([
+    "m4a",
+    "mp3",
+    "mp4",
+    "mpeg",
+    "mpga",
+    "opus",
+    "wav",
+    "webm",
+  ]);
+
+  if (!supportedExtensions.has(extension)) {
+    return null;
+  }
+
+  return {
+    extension,
+    path: join(directory, fileName),
+    priority: getYtDlpAudioFilePriority(extension),
+  };
+}
+
+function getYtDlpAudioFilePriority(extension: string) {
+  if (extension === "m4a") {
+    return 0;
+  }
+
+  if (extension === "mp3" || extension === "mp4") {
+    return 1;
+  }
+
+  return 2;
+}
+
+async function transcribeAudioWithOpenAICompatibleApi(
+  audioFile: YtDlpAudioFile,
+): Promise<TranscriptResult> {
+  const apiKey = process.env.OPENAI_ASR_API_KEY ?? process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new TranscriptFetchError(
+      "bilibili",
+      "缺少环境变量 OPENAI_ASR_API_KEY 或 OPENAI_API_KEY，无法进行 Bilibili 音频转写。",
+    );
+  }
+
+  const model = process.env.OPENAI_ASR_MODEL ?? defaultAsrModel;
+  const endpoint = new URL(
+    "audio/transcriptions",
+    normalizeBaseUrl(process.env.OPENAI_ASR_BASE_URL ?? defaultAsrBaseUrl),
+  );
+  const fileBuffer = await readFile(audioFile.path);
+  const formData = new FormData();
+
+  formData.set("model", model);
+  formData.set("response_format", "verbose_json");
+
+  const language = process.env.OPENAI_ASR_LANGUAGE;
+
+  if (language) {
+    formData.set("language", language);
+  }
+
+  formData.set(
+    "file",
+    new Blob([new Uint8Array(fileBuffer)], {
+      type: getAudioMimeType(audioFile.extension),
+    }),
+    `bilibili.${audioFile.extension}`,
+  );
+
+  let response: Response;
+
+  try {
+    response = await fetch(endpoint, {
+      body: formData,
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+      },
+      method: "POST",
+      signal: AbortSignal.timeout(bilibiliAsrTimeoutMs),
+    });
+  } catch (caught) {
+    throw new TranscriptFetchError("bilibili", "ASR 网络请求失败。", caught);
+  }
+
+  if (!response.ok) {
+    throw new TranscriptFetchError(
+      "bilibili",
+      `ASR 请求失败，HTTP 状态码 ${response.status}。`,
+      await readResponseText(response),
+    );
+  }
+
+  let responseBody: unknown;
+
+  try {
+    responseBody = await response.json();
+  } catch (caught) {
+    throw new TranscriptFetchError("bilibili", "ASR 响应不是有效 JSON。", caught);
+  }
+
+  const parsedTranscription =
+    asrTranscriptionResponseSchema.safeParse(responseBody);
+
+  if (!parsedTranscription.success) {
+    throw new TranscriptFetchError(
+      "bilibili",
+      "ASR 响应结构无效。",
+      parsedTranscription.error,
+    );
+  }
+
+  const segments = toAsrTranscriptSegments(parsedTranscription.data);
+  const plainText =
+    parsedTranscription.data.text?.trim() ||
+    segments.map((segment) => segment.text).join("\n");
+
+  return {
+    language: parsedTranscription.data.language ?? null,
+    plainText,
+    segments:
+      segments.length > 0
+        ? segments
+        : [
+            {
+              endSeconds: null,
+              startSeconds: null,
+              text: plainText,
+            },
+          ],
+    source: "asr",
+  };
+}
+
+function toAsrTranscriptSegments(
+  transcription: z.infer<typeof asrTranscriptionResponseSchema>,
+) {
+  return (
+    transcription.segments
+      ?.map((segment) => ({
+        endSeconds: segment.end ?? null,
+        startSeconds: segment.start ?? null,
+        text: segment.text?.replace(/\s+/gu, " ").trim() ?? "",
+      }))
+      .filter((segment) => segment.text.length > 0) ?? []
+  );
+}
+
+function getAudioMimeType(extension: string) {
+  switch (extension) {
+    case "m4a":
+      return "audio/mp4";
+    case "mp3":
+      return "audio/mpeg";
+    case "mp4":
+      return "video/mp4";
+    case "wav":
+      return "audio/wav";
+    case "webm":
+      return "audio/webm";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+function normalizeBaseUrl(baseUrl: string) {
+  return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+}
+
+async function readResponseText(response: Response) {
+  try {
+    return await response.text();
+  } catch {
+    return null;
+  }
 }
 
 type YtDlpSubtitleFile = {

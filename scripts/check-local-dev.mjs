@@ -62,6 +62,7 @@ async function main() {
     "OPENAI_SUMMARY_MAX_TOKENS",
     "apps/worker/.env.local",
   );
+  checkOptionalAsrEnv(workerEnv, "apps/worker/.env.local");
   checkEnv(workerEnv, "RESEND_API_KEY", "apps/worker/.env.local", {
     allowMissing: true,
   });
@@ -182,6 +183,49 @@ function checkOptionalUrlEnv(env, key, label) {
     detail: valid ? "configured" : "not a valid URL",
     required: false,
   });
+}
+
+function checkOptionalTextEnv(env, key, label, options = {}) {
+  const value = env[key] ?? options.defaultValue;
+
+  if (!value) {
+    addCheck({
+      ok: true,
+      label: `${label} ${key}`,
+      detail: "not set",
+      required: false,
+    });
+    return;
+  }
+
+  addCheck({
+    ok: !isPlaceholder(value),
+    label: `${label} ${key}`,
+    detail: isPlaceholder(value) ? "placeholder value" : "configured",
+    required: false,
+  });
+}
+
+function checkOptionalAsrEnv(env, label) {
+  const configuredKey = ["OPENAI_ASR_API_KEY", "OPENAI_API_KEY"].find((key) => {
+    const value = env[key];
+    return value && !isPlaceholder(value);
+  });
+
+  addCheck({
+    ok: Boolean(configuredKey),
+    label: `${label} OPENAI_ASR_API_KEY or OPENAI_API_KEY`,
+    detail: configuredKey
+      ? `using ${configuredKey}`
+      : "missing; Bilibili audio fallback will fail",
+    required: false,
+  });
+
+  checkOptionalUrlEnv(env, "OPENAI_ASR_BASE_URL", label);
+  checkOptionalTextEnv(env, "OPENAI_ASR_MODEL", label, {
+    defaultValue: "whisper-1",
+  });
+  checkOptionalTextEnv(env, "OPENAI_ASR_LANGUAGE", label);
 }
 
 async function checkRedis(redisUrl, label) {

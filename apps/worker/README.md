@@ -5,7 +5,8 @@
 ## 职责
 
 - 监听 `video-digest` 队列中的 `process-video-digest` job。
-- 使用 yt-dlp 读取 YouTube 元数据和字幕。
+- 使用 yt-dlp 读取 YouTube/Bilibili 元数据、字幕和 Bilibili audio-only 文件。
+- 在 Bilibili 音频 fallback 开启时调用 OpenAI-compatible Audio Transcriptions API 生成 ASR 字幕。
 - 调用 OpenAI-compatible API 生成结构化摘要。
 - 调用 Resend 投递摘要邮件。
 - 写回 `video_records`、`job_events`、`usage_events`、`transcripts`、`summaries` 和 `delivery_records`。
@@ -36,6 +37,10 @@ OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_API_KEY=sk_xxx
 OPENAI_SUMMARY_MODEL=deepseek-v4-flash
 OPENAI_SUMMARY_MAX_TOKENS=4000
+OPENAI_ASR_BASE_URL=https://api.openai.com/v1
+OPENAI_ASR_API_KEY=sk_xxx
+OPENAI_ASR_MODEL=whisper-1
+OPENAI_ASR_LANGUAGE=zh
 RESEND_API_KEY=re_xxx
 RESEND_FROM_EMAIL="Video Digest <digest@example.com>"
 WEB_APP_URL=http://localhost:3000
@@ -50,6 +55,8 @@ LOCAL_PROXY_URL=http://127.0.0.1:10808
 生产环境不配置 `LOCAL_PROXY_URL` 时会直连。
 
 `YTDLP_PATH` 默认可写 `yt-dlp`；Docker/Railway 这类环境可写绝对路径，例如 `/usr/local/bin/yt-dlp`。
+
+Bilibili 勾选“无字幕时转写音频”后会直接走音频转写：worker 先用 yt-dlp 下载 `bestaudio`，再调用 `OPENAI_ASR_BASE_URL` 下的 `/audio/transcriptions`。`OPENAI_ASR_API_KEY` 未配置时会复用 `OPENAI_API_KEY`。
 
 ## 处理流程
 
@@ -85,15 +92,15 @@ startWorker()
 | `metadata_fetch_failed`     | 视频元数据读取失败         |
 | `provider_unavailable`      | 当前平台 provider 尚未接入 |
 | `summary_generation_failed` | 摘要生成失败               |
-| `transcript_fetch_failed`   | 字幕读取失败               |
-| `transcript_not_found`      | 视频没有可用公开字幕       |
+| `transcript_fetch_failed`   | 字幕读取或音频转写失败     |
+| `transcript_not_found`      | 视频没有可用字幕或转写文本 |
 | `worker_processing_failed`  | 其他未分类 worker 错误     |
 
 ## 当前限制
 
 - YouTube provider 已接 yt-dlp。
-- Bilibili provider 仍是占位实现。
-- ASR 链路尚未接入，`fallbackToAudio` 仍会进入失败恢复链路。
+- Bilibili provider 已接 yt-dlp 元数据、字幕和音频转写 fallback。
+- 长视频音频可能受 ASR 服务文件大小和超时限制，需要后续增加分片转写。
 
 ## 常用命令
 

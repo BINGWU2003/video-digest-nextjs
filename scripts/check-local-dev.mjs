@@ -207,17 +207,31 @@ function checkOptionalTextEnv(env, key, label, options = {}) {
 }
 
 function checkOptionalAsrEnv(env, label) {
-  const configuredKey = ["OPENAI_ASR_API_KEY", "OPENAI_API_KEY"].find((key) => {
-    const value = env[key];
-    return value && !isPlaceholder(value);
-  });
+  const configuredAsrKey =
+    env.OPENAI_ASR_API_KEY && !isPlaceholder(env.OPENAI_ASR_API_KEY);
+  const configuredSummaryKey =
+    env.OPENAI_API_KEY && !isPlaceholder(env.OPENAI_API_KEY);
+  const configuredAsrBaseUrl =
+    env.OPENAI_ASR_BASE_URL && !isPlaceholder(env.OPENAI_ASR_BASE_URL);
+  const summaryBaseUrl = env.OPENAI_BASE_URL;
+  const summaryKeyLooksReusable =
+    configuredSummaryKey &&
+    (!summaryBaseUrl ||
+      isPlaceholder(summaryBaseUrl) ||
+      summaryBaseUrl.includes("api.openai.com"));
+  const ok =
+    Boolean(configuredAsrKey) ||
+    Boolean(configuredAsrBaseUrl && configuredSummaryKey) ||
+    Boolean(summaryKeyLooksReusable);
 
   addCheck({
-    ok: Boolean(configuredKey),
+    ok,
     label: `${label} OPENAI_ASR_API_KEY or OPENAI_API_KEY`,
-    detail: configuredKey
-      ? `using ${configuredKey}`
-      : "missing; Bilibili audio fallback will fail",
+    detail: configuredAsrKey
+      ? "using OPENAI_ASR_API_KEY"
+      : ok
+        ? "using OPENAI_API_KEY"
+        : "missing ASR-specific credentials; Bilibili audio fallback may fail",
     required: false,
   });
 

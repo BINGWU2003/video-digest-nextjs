@@ -6,7 +6,7 @@
 
 - 监听 `video-digest` 队列中的 `process-video-digest` job。
 - 使用 yt-dlp 读取 YouTube/Bilibili 元数据、字幕和 Bilibili audio-only 文件。
-- 在 Bilibili 音频 fallback 开启时调用 OpenAI-compatible Audio Transcriptions API 生成 ASR 字幕。
+- 在 Bilibili 音频 fallback 开启时调用本地 faster-whisper 生成 ASR 字幕。
 - 调用 OpenAI-compatible API 生成结构化摘要。
 - 调用 Resend 投递摘要邮件。
 - 写回 `video_records`、`job_events`、`usage_events`、`transcripts`、`summaries` 和 `delivery_records`。
@@ -37,10 +37,11 @@ OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_API_KEY=sk_xxx
 OPENAI_SUMMARY_MODEL=deepseek-v4-flash
 OPENAI_SUMMARY_MAX_TOKENS=4000
-OPENAI_ASR_BASE_URL=https://api.openai.com/v1
-OPENAI_ASR_API_KEY=sk_xxx
-OPENAI_ASR_MODEL=whisper-1
-OPENAI_ASR_LANGUAGE=zh
+FASTER_WHISPER_PYTHON_PATH=python
+FASTER_WHISPER_MODEL=small
+FASTER_WHISPER_DEVICE=cpu
+FASTER_WHISPER_COMPUTE_TYPE=int8
+FASTER_WHISPER_LANGUAGE=zh
 RESEND_API_KEY=re_xxx
 RESEND_FROM_EMAIL="Video Digest <digest@example.com>"
 WEB_APP_URL=http://localhost:3000
@@ -56,7 +57,11 @@ LOCAL_PROXY_URL=http://127.0.0.1:10808
 
 `YTDLP_PATH` 默认可写 `yt-dlp`；Docker/Railway 这类环境可写绝对路径，例如 `/usr/local/bin/yt-dlp`。
 
-Bilibili 勾选“无字幕时转写音频”后会直接走音频转写：worker 先用 yt-dlp 下载 `bestaudio`，再调用 `OPENAI_ASR_BASE_URL` 下的 `/audio/transcriptions`。`OPENAI_ASR_API_KEY` 未配置时会复用 `OPENAI_API_KEY`。
+Bilibili 勾选“无字幕时转写音频”后会直接走音频转写：worker 先用 yt-dlp 下载 `bestaudio`，再调用本地 Python 脚本 `scripts/asr/faster-whisper-transcribe.py`。首次运行前先安装：
+
+```bash
+python -m pip install -r scripts/asr/requirements.txt
+```
 
 ## 处理流程
 

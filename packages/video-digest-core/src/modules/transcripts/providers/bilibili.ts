@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 
@@ -14,9 +15,8 @@ import type {
 import { TranscriptFetchError, TranscriptNotFoundError } from "../types.js";
 
 const bilibiliYtDlpTimeoutMs = 120_000;
-const bilibiliAsrTimeoutMs = 600_000;
-const defaultAsrBaseUrl = "https://api.openai.com/v1";
-const defaultAsrModel = "whisper-1";
+const bilibiliAsrTimeoutMs = 1_800_000;
+const defaultFasterWhisperModel = "small";
 const ytDlpSubtitleLanguages = "zh.*,en.*";
 const execFileAsync = promisify(execFile);
 
@@ -32,7 +32,7 @@ const bilibiliJsonTranscriptSchema = z.object({
     .optional(),
 });
 
-const asrTranscriptionResponseSchema = z.object({
+const fasterWhisperTranscriptionResponseSchema = z.object({
   language: z.string().min(1).nullable().optional(),
   segments: z
     .array(
@@ -94,7 +94,7 @@ async function fetchBilibiliTranscriptWithAudioAsr(
       );
     }
 
-    const transcription = await transcribeAudioWithOpenAICompatibleApi(audioFile);
+    const transcription = await transcribeAudioWithFasterWhisper(audioFile);
 
     if (!transcription.plainText?.trim()) {
       throw new TranscriptNotFoundError(
@@ -334,81 +334,69 @@ function getYtDlpAudioFilePriority(extension: string) {
   return 2;
 }
 
-async function transcribeAudioWithOpenAICompatibleApi(
+async function transcribeAudioWithFasterWhisper(
   audioFile: YtDlpAudioFile,
 ): Promise<TranscriptResult> {
-  const apiKey = process.env.OPENAI_ASR_API_KEY ?? process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    throw new TranscriptFetchError(
-      "bilibili",
-      "缺少环境变量 OPENAI_ASR_API_KEY 或 OPENAI_API_KEY，无法进行 Bilibili 音频转写。",
-    );
-  }
-
-  const model = process.env.OPENAI_ASR_MODEL ?? defaultAsrModel;
-  const endpoint = new URL(
-    "audio/transcriptions",
-    normalizeBaseUrl(process.env.OPENAI_ASR_BASE_URL ?? defaultAsrBaseUrl),
-  );
-  const fileBuffer = await readFile(audioFile.path);
-  const formData = new FormData();
-
-  formData.set("model", model);
-  formData.set("response_format", "verbose_json");
-
-  const language = process.env.OPENAI_ASR_LANGUAGE;
+  const pythonPath = process.env.FASTER_WHISPER_PYTHON_PATH ?? "python";
+  const args = [
+    resolveFasterWhisperScriptPath(),
+    "--audio",
+    audioFile.path,
+    "--model",
+    process.env.FASTER_WHISPER_MODEL ?? defaultFasterWhisperModel,
+    "--device",
+    process.env.FASTER_WHISPER_DEVICE ?? "cpu",
+    "--compute-type",
+    process.env.FASTER_WHISPER_COMPUTE_TYPE ?? "int8",
+    "--beam-size",
+    process.env.FASTER_WHISPER_BEAM_SIZE ?? "5",
+  ];
+  const language = process.env.FASTER_WHISPER_LANGUAGE;
 
   if (language) {
-    formData.set("language", language);
+    args.push("--language", language);
   }
 
-  formData.set(
-    "file",
-    new Blob([new Uint8Array(fileBuffer)], {
-      type: getAudioMimeType(audioFile.extension),
-    }),
-    `bilibili.${audioFile.extension}`,
-  );
+  if (process.env.FASTER_WHISPER_VAD_FILTER !== "false") {
+    args.push("--vad-filter");
+  }
 
-  let response: Response;
+  let stdout: string;
 
   try {
-    response = await fetch(endpoint, {
-      body: formData,
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-      },
-      method: "POST",
-      signal: AbortSignal.timeout(bilibiliAsrTimeoutMs),
-    });
+    ({ stdout } = await execFileAsync(pythonPath, args, {
+      env: process.env,
+      maxBuffer: 1024 * 1024 * 30,
+      timeout: bilibiliAsrTimeoutMs,
+      windowsHide: true,
+    }));
   } catch (caught) {
-    throw new TranscriptFetchError("bilibili", "ASR 网络请求失败。", caught);
-  }
-
-  if (!response.ok) {
     throw new TranscriptFetchError(
       "bilibili",
-      `ASR 请求失败，HTTP 状态码 ${response.status}。`,
-      await readResponseText(response),
+      `faster-whisper 执行失败：${getYtDlpErrorDetail(caught)}`,
+      caught,
     );
   }
 
   let responseBody: unknown;
 
   try {
-    responseBody = await response.json();
+    responseBody = JSON.parse(stdout);
   } catch (caught) {
-    throw new TranscriptFetchError("bilibili", "ASR 响应不是有效 JSON。", caught);
+    throw new TranscriptFetchError(
+      "bilibili",
+      "faster-whisper 输出不是有效 JSON。",
+      caught,
+    );
   }
 
   const parsedTranscription =
-    asrTranscriptionResponseSchema.safeParse(responseBody);
+    fasterWhisperTranscriptionResponseSchema.safeParse(responseBody);
 
   if (!parsedTranscription.success) {
     throw new TranscriptFetchError(
       "bilibili",
-      "ASR 响应结构无效。",
+      "faster-whisper 输出结构无效。",
       parsedTranscription.error,
     );
   }
@@ -435,8 +423,31 @@ async function transcribeAudioWithOpenAICompatibleApi(
   };
 }
 
+function resolveFasterWhisperScriptPath() {
+  const configuredScriptPath = process.env.FASTER_WHISPER_SCRIPT_PATH;
+
+  if (configuredScriptPath) {
+    return configuredScriptPath;
+  }
+
+  const candidates = [
+    resolve(process.cwd(), "scripts/asr/faster-whisper-transcribe.py"),
+    resolve(process.cwd(), "../../scripts/asr/faster-whisper-transcribe.py"),
+  ];
+  const scriptPath = candidates.find((candidate) => existsSync(candidate));
+
+  if (!scriptPath) {
+    throw new TranscriptFetchError(
+      "bilibili",
+      "找不到 faster-whisper 转写脚本，请配置 FASTER_WHISPER_SCRIPT_PATH。",
+    );
+  }
+
+  return scriptPath;
+}
+
 function toAsrTranscriptSegments(
-  transcription: z.infer<typeof asrTranscriptionResponseSchema>,
+  transcription: z.infer<typeof fasterWhisperTranscriptionResponseSchema>,
 ) {
   return (
     transcription.segments
@@ -447,35 +458,6 @@ function toAsrTranscriptSegments(
       }))
       .filter((segment) => segment.text.length > 0) ?? []
   );
-}
-
-function getAudioMimeType(extension: string) {
-  switch (extension) {
-    case "m4a":
-      return "audio/mp4";
-    case "mp3":
-      return "audio/mpeg";
-    case "mp4":
-      return "video/mp4";
-    case "wav":
-      return "audio/wav";
-    case "webm":
-      return "audio/webm";
-    default:
-      return "application/octet-stream";
-  }
-}
-
-function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-}
-
-async function readResponseText(response: Response) {
-  try {
-    return await response.text();
-  } catch {
-    return null;
-  }
 }
 
 type YtDlpSubtitleFile = {

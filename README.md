@@ -45,7 +45,7 @@ supabase/migrations/   Supabase SQL migrations
 - 邮箱登录、记录列表、记录详情、邮箱设置、MCP Token 设置和用量页面。
 - 通过 Web 表单、`POST /api/records` 或 `POST /api/mcp` 创建视频摘要任务。
 - YouTube 元数据和字幕提取使用 `yt-dlp`。
-- Bilibili 元数据、公开字幕和音频下载使用 `yt-dlp`；勾选音频转写时通过 OpenAI-compatible Audio Transcriptions API 生成 ASR 字幕。
+- Bilibili 元数据、公开字幕和音频下载使用 `yt-dlp`；勾选音频转写时通过本地 `faster-whisper` 生成 ASR 字幕。
 - 摘要生成使用 OpenAI-compatible API。
 - 邮件投递使用 Resend，并通过 `/api/webhooks/resend` 同步 `sent`、`delivered`、`delivery_delayed`、`bounced`、`complained` 等真实状态。
 - MCP Token 支持 scope 校验和调用审计。
@@ -124,9 +124,11 @@ YTDLP_PATH=yt-dlp
 OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_API_KEY=sk_xxx
 OPENAI_SUMMARY_MODEL=deepseek-v4-flash
-OPENAI_ASR_BASE_URL=https://api.openai.com/v1
-OPENAI_ASR_API_KEY=sk_xxx
-OPENAI_ASR_MODEL=whisper-1
+FASTER_WHISPER_PYTHON_PATH=python
+FASTER_WHISPER_MODEL=small
+FASTER_WHISPER_DEVICE=cpu
+FASTER_WHISPER_COMPUTE_TYPE=int8
+FASTER_WHISPER_LANGUAGE=zh
 RESEND_API_KEY=re_xxx
 RESEND_FROM_EMAIL="Video Digest <digest@example.com>"
 RESEND_WEBHOOK_SECRET=whsec_xxx

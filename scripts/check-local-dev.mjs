@@ -62,7 +62,7 @@ async function main() {
     "OPENAI_SUMMARY_MAX_TOKENS",
     "apps/worker/.env.local",
   );
-  checkOptionalAsrEnv(workerEnv, "apps/worker/.env.local");
+  checkOptionalFasterWhisperEnv(workerEnv, "apps/worker/.env.local");
   checkEnv(workerEnv, "RESEND_API_KEY", "apps/worker/.env.local", {
     allowMissing: true,
   });
@@ -77,6 +77,7 @@ async function main() {
     "Redis for BullMQ",
   );
   await checkYtDlp(workerEnv.YTDLP_PATH ?? "yt-dlp");
+  await checkFasterWhisper(workerEnv.FASTER_WHISPER_PYTHON_PATH ?? "python");
   await checkOptionalProxy(workerEnv.LOCAL_PROXY_URL);
 
   printSummary();
@@ -206,40 +207,20 @@ function checkOptionalTextEnv(env, key, label, options = {}) {
   });
 }
 
-function checkOptionalAsrEnv(env, label) {
-  const configuredAsrKey =
-    env.OPENAI_ASR_API_KEY && !isPlaceholder(env.OPENAI_ASR_API_KEY);
-  const configuredSummaryKey =
-    env.OPENAI_API_KEY && !isPlaceholder(env.OPENAI_API_KEY);
-  const configuredAsrBaseUrl =
-    env.OPENAI_ASR_BASE_URL && !isPlaceholder(env.OPENAI_ASR_BASE_URL);
-  const summaryBaseUrl = env.OPENAI_BASE_URL;
-  const summaryKeyLooksReusable =
-    configuredSummaryKey &&
-    (!summaryBaseUrl ||
-      isPlaceholder(summaryBaseUrl) ||
-      summaryBaseUrl.includes("api.openai.com"));
-  const ok =
-    Boolean(configuredAsrKey) ||
-    Boolean(configuredAsrBaseUrl && configuredSummaryKey) ||
-    Boolean(summaryKeyLooksReusable);
-
-  addCheck({
-    ok,
-    label: `${label} OPENAI_ASR_API_KEY or OPENAI_API_KEY`,
-    detail: configuredAsrKey
-      ? "using OPENAI_ASR_API_KEY"
-      : ok
-        ? "using OPENAI_API_KEY"
-        : "missing ASR-specific credentials; Bilibili audio fallback may fail",
-    required: false,
+function checkOptionalFasterWhisperEnv(env, label) {
+  checkOptionalTextEnv(env, "FASTER_WHISPER_PYTHON_PATH", label, {
+    defaultValue: "python",
   });
-
-  checkOptionalUrlEnv(env, "OPENAI_ASR_BASE_URL", label);
-  checkOptionalTextEnv(env, "OPENAI_ASR_MODEL", label, {
-    defaultValue: "whisper-1",
+  checkOptionalTextEnv(env, "FASTER_WHISPER_MODEL", label, {
+    defaultValue: "small",
   });
-  checkOptionalTextEnv(env, "OPENAI_ASR_LANGUAGE", label);
+  checkOptionalTextEnv(env, "FASTER_WHISPER_DEVICE", label, {
+    defaultValue: "cpu",
+  });
+  checkOptionalTextEnv(env, "FASTER_WHISPER_COMPUTE_TYPE", label, {
+    defaultValue: "int8",
+  });
+  checkOptionalTextEnv(env, "FASTER_WHISPER_LANGUAGE", label);
 }
 
 async function checkRedis(redisUrl, label) {
@@ -298,6 +279,36 @@ async function checkYtDlp(ytDlpPath) {
       label: "yt-dlp",
       detail: toErrorMessage(caught),
       required: true,
+    });
+  }
+}
+
+async function checkFasterWhisper(pythonPath) {
+  try {
+    const { stdout } = await execFileAsync(
+      pythonPath,
+      [
+        "-c",
+        "import importlib.metadata; print(importlib.metadata.version('faster-whisper'))",
+      ],
+      {
+        timeout: 10_000,
+        windowsHide: true,
+      },
+    );
+
+    addCheck({
+      ok: true,
+      label: "faster-whisper",
+      detail: `version ${stdout.trim()}`,
+      required: false,
+    });
+  } catch (caught) {
+    addCheck({
+      ok: false,
+      label: "faster-whisper",
+      detail: `${toErrorMessage(caught)}; Bilibili audio fallback will fail`,
+      required: false,
     });
   }
 }

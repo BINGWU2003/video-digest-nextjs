@@ -55,7 +55,7 @@ src/modules/email-delivery/
 - YouTube 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download`。
 - YouTube 字幕 provider 使用 `yt-dlp` 下载 `json3` 或 `vtt` 字幕并解析分段。
 - Bilibili 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download`。
-- Bilibili 字幕 provider 使用 `yt-dlp` 下载公开字幕；`fallbackToAudio` 开启时改为下载 audio-only 文件并调用 OpenAI-compatible Audio Transcriptions API。
+- Bilibili 字幕 provider 使用 `yt-dlp` 下载公开字幕；`fallbackToAudio` 开启时改为下载 audio-only 文件并调用本地 faster-whisper。
 - 摘要 provider 使用 OpenAI-compatible Chat Completions API。
 - 邮件投递 provider interface 由 worker 侧 Resend 实现注入。
 

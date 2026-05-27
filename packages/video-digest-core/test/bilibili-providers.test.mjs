@@ -19,23 +19,20 @@ vi.mock("node:child_process", () => ({
 
 const execFileMock = vi.mocked(execFile);
 const sourceUrl = "https://www.bilibili.com/video/BV1xx411c7mD";
-const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
 
 afterEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+  delete process.env.FASTER_WHISPER_BEAM_SIZE;
+  delete process.env.FASTER_WHISPER_COMPUTE_TYPE;
+  delete process.env.FASTER_WHISPER_DEVICE;
+  delete process.env.FASTER_WHISPER_LANGUAGE;
+  delete process.env.FASTER_WHISPER_MODEL;
+  delete process.env.FASTER_WHISPER_PYTHON_PATH;
+  delete process.env.FASTER_WHISPER_SCRIPT_PATH;
+  delete process.env.FASTER_WHISPER_VAD_FILTER;
   delete process.env.LOCAL_PROXY_URL;
-  delete process.env.OPENAI_ASR_API_KEY;
-  delete process.env.OPENAI_ASR_BASE_URL;
-  delete process.env.OPENAI_ASR_LANGUAGE;
-  delete process.env.OPENAI_ASR_MODEL;
   delete process.env.YTDLP_PATH;
-
-  if (originalOpenAiApiKey === undefined) {
-    delete process.env.OPENAI_API_KEY;
-  } else {
-    process.env.OPENAI_API_KEY = originalOpenAiApiKey;
-  }
 });
 
 describe("createBilibiliVideoMetadataProvider", () => {
@@ -166,39 +163,37 @@ describe("createBilibiliTranscriptProvider", () => {
     );
   });
 
-  test("downloads Bilibili audio and transcribes it when audio fallback is enabled", async () => {
-    const fetchMock = vi.fn(async () => {
-      return new globalThis.Response(
-        JSON.stringify({
+  test("downloads Bilibili audio and transcribes it with faster-whisper when audio fallback is enabled", async () => {
+    process.env.FASTER_WHISPER_PYTHON_PATH = "python-test";
+    process.env.FASTER_WHISPER_SCRIPT_PATH =
+      "D:\\code\\next-project\\video-digest-nextjs\\scripts\\asr\\faster-whisper-transcribe.py";
+    process.env.FASTER_WHISPER_MODEL = "base";
+    process.env.FASTER_WHISPER_LANGUAGE = "zh";
+
+    execFileMock.mockImplementation((_command, args, _options, callback) => {
+      if (args.includes("--output")) {
+        const outputTemplate = args[args.indexOf("--output") + 1];
+        const directory = dirname(outputTemplate);
+
+        void (async () => {
+          await mkdir(directory, { recursive: true });
+          await writeFile(join(directory, "demo.m4a"), Buffer.from([1, 2, 3]));
+          callback(null, { stderr: "", stdout: "" });
+        })();
+        return;
+      }
+
+      callback(null, {
+        stderr: "",
+        stdout: JSON.stringify({
           language: "zh",
           segments: [
             { end: 2.2, start: 0, text: "音频第一段" },
             { end: 5.1, start: 2.2, text: "音频第二段" },
           ],
-          text: "音频第一段 音频第二段",
+          text: "音频第一段\n音频第二段",
         }),
-        {
-          headers: { "content-type": "application/json" },
-          status: 200,
-        },
-      );
-    });
-
-    vi.stubGlobal("fetch", fetchMock);
-    process.env.OPENAI_ASR_API_KEY = "asr-key";
-    process.env.OPENAI_ASR_BASE_URL = "https://asr.example.test/v1";
-    process.env.OPENAI_ASR_MODEL = "whisper-test";
-    process.env.OPENAI_ASR_LANGUAGE = "zh";
-
-    execFileMock.mockImplementation((_command, args, _options, callback) => {
-      const outputTemplate = args[args.indexOf("--output") + 1];
-      const directory = dirname(outputTemplate);
-
-      void (async () => {
-        await mkdir(directory, { recursive: true });
-        await writeFile(join(directory, "demo.m4a"), Buffer.from([1, 2, 3]));
-        callback(null, { stderr: "", stdout: "" });
-      })();
+      });
     });
 
     const provider = createBilibiliTranscriptProvider();
@@ -210,7 +205,7 @@ describe("createBilibiliTranscriptProvider", () => {
 
     assert.equal(transcript.language, "zh");
     assert.equal(transcript.source, "asr");
-    assert.equal(transcript.plainText, "音频第一段 音频第二段");
+    assert.equal(transcript.plainText, "音频第一段\n音频第二段");
     assert.deepEqual(transcript.segments, [
       { endSeconds: 2.2, startSeconds: 0, text: "音频第一段" },
       { endSeconds: 5.1, startSeconds: 2.2, text: "音频第二段" },
@@ -224,30 +219,53 @@ describe("createBilibiliTranscriptProvider", () => {
       "--output",
     ]);
 
-    const [endpoint, request] = fetchMock.mock.calls[0];
-    assert.equal(
-      endpoint.toString(),
-      "https://asr.example.test/v1/audio/transcriptions",
-    );
-    assert.equal(request.method, "POST");
-    assert.equal(request.headers.authorization, "Bearer asr-key");
-    assert.equal(request.body.get("model"), "whisper-test");
-    assert.equal(request.body.get("language"), "zh");
-    assert.equal(request.body.get("response_format"), "verbose_json");
+    assert.equal(execFileMock.mock.calls[1][0], "python-test");
+    assert.deepEqual(execFileMock.mock.calls[1][1], [
+      "D:\\code\\next-project\\video-digest-nextjs\\scripts\\asr\\faster-whisper-transcribe.py",
+      "--audio",
+      join(
+        dirname(
+          execFileMock.mock.calls[0][1][
+            execFileMock.mock.calls[0][1].indexOf("--output") + 1
+          ],
+        ),
+        "demo.m4a",
+      ),
+      "--model",
+      "base",
+      "--device",
+      "cpu",
+      "--compute-type",
+      "int8",
+      "--beam-size",
+      "5",
+      "--language",
+      "zh",
+      "--vad-filter",
+    ]);
   });
 
-  test("requires an ASR API key for Bilibili audio fallback", async () => {
-    delete process.env.OPENAI_API_KEY;
-
+  test("wraps faster-whisper failures for Bilibili audio fallback", async () => {
+    process.env.FASTER_WHISPER_SCRIPT_PATH =
+      "D:\\code\\next-project\\video-digest-nextjs\\scripts\\asr\\faster-whisper-transcribe.py";
     execFileMock.mockImplementation((_command, args, _options, callback) => {
-      const outputTemplate = args[args.indexOf("--output") + 1];
-      const directory = dirname(outputTemplate);
+      if (args.includes("--output")) {
+        const outputTemplate = args[args.indexOf("--output") + 1];
+        const directory = dirname(outputTemplate);
 
-      void (async () => {
-        await mkdir(directory, { recursive: true });
-        await writeFile(join(directory, "demo.m4a"), Buffer.from([1, 2, 3]));
-        callback(null, { stderr: "", stdout: "" });
-      })();
+        void (async () => {
+          await mkdir(directory, { recursive: true });
+          await writeFile(join(directory, "demo.m4a"), Buffer.from([1, 2, 3]));
+          callback(null, { stderr: "", stdout: "" });
+        })();
+        return;
+      }
+
+      callback(
+        Object.assign(new Error("Command failed"), {
+          stderr: "ModuleNotFoundError: No module named 'faster_whisper'",
+        }),
+      );
     });
 
     const provider = createBilibiliTranscriptProvider();

@@ -13,7 +13,7 @@
     "build": "tsup",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run test/create-video-record.test.mjs test/manage-video-digest-job.test.mjs"
+    "test": "vitest run test"
   },
   "dependencies": {
     "@video-digest-nextjs/database": "workspace:*",

@@ -53,7 +53,7 @@ def main():
                 "segments": segments,
                 "text": text,
             },
-            ensure_ascii=False,
+            ensure_ascii=True,
         )
     )
 

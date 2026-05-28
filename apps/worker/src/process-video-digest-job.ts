@@ -28,6 +28,7 @@ import {
   EmailRecipientNotFoundError,
   SummaryGenerationError,
   type SummaryProvider,
+  type TranscriptProgressEvent,
   TranscriptFetchError,
   TranscriptNotFoundError,
   TranscriptProviderUnavailableError,
@@ -145,6 +146,11 @@ export async function processVideoDigestJob(
       },
       {
         fallbackToAudio: record.fallbackToAudio,
+        onProgress: createTranscriptProgressHandler(dependencies, {
+          context,
+          initialStatus: "extracting_transcript",
+          payload,
+        }),
         platform: record.platform,
         sourceUrl: record.sourceUrl,
       },
@@ -169,7 +175,10 @@ export async function processVideoDigestJob(
         id: record.id,
         userId: record.userId,
         status: "completed",
-        expectedStatus: "extracting_transcript",
+        expectedStatus: await getCurrentTranscriptProcessingStatus(
+          dependencies,
+          payload,
+        ),
         completedAt: getNow(dependencies),
       });
 
@@ -195,7 +204,10 @@ export async function processVideoDigestJob(
       id: record.id,
       userId: record.userId,
       status: "summarizing",
-      expectedStatus: "extracting_transcript",
+      expectedStatus: await getCurrentTranscriptProcessingStatus(
+        dependencies,
+        payload,
+      ),
       completedAt: null,
     });
 
@@ -311,6 +323,69 @@ export async function processVideoDigestJob(
 
     await markVideoDigestJobFailed(dependencies, payload, context, caught);
   }
+}
+
+function createTranscriptProgressHandler(
+  dependencies: ProcessVideoDigestJobDependencies,
+  input: {
+    context: VideoDigestWorkerContext;
+    initialStatus: Extract<
+      VideoRecordRow["status"],
+      "extracting_audio" | "extracting_transcript" | "transcribing_audio"
+    >;
+    payload: VideoDigestQueuePayload;
+  },
+) {
+  let currentStatus = input.initialStatus;
+
+  return async (event: TranscriptProgressEvent) => {
+    if (await isVideoDigestJobCancelled(dependencies, input.payload)) {
+      return;
+    }
+
+    if (currentStatus !== event.status) {
+      await dependencies.videoRecordsRepository.updateStatusForUser({
+        id: input.payload.recordId,
+        userId: input.payload.userId,
+        status: event.status,
+        expectedStatus: currentStatus,
+        completedAt: null,
+      });
+      currentStatus = event.status;
+    }
+
+    await dependencies.jobEventsRepository.create({
+      recordId: input.payload.recordId,
+      userId: input.payload.userId,
+      status: event.status,
+      message: event.message,
+      metadata: {
+        ...event.metadata,
+        attemptsMade: input.context.attemptsMade,
+        queueJobId: input.context.queueJobId,
+      },
+    });
+  };
+}
+
+async function getCurrentTranscriptProcessingStatus(
+  dependencies: Pick<ProcessVideoDigestJobDependencies, "videoRecordsRepository">,
+  payload: VideoDigestQueuePayload,
+) {
+  const record = await dependencies.videoRecordsRepository.findByIdForUser({
+    id: payload.recordId,
+    userId: payload.userId,
+  });
+
+  if (
+    record?.status === "extracting_audio" ||
+    record?.status === "extracting_transcript" ||
+    record?.status === "transcribing_audio"
+  ) {
+    return record.status;
+  }
+
+  return "extracting_transcript";
 }
 
 async function deliverSummaryEmail(

@@ -20,6 +20,15 @@ export type TranscriptResult = {
   segments: TranscriptSegment[];
 };
 
+export type TranscriptProgressEvent = {
+  /** 当前字幕提取子阶段，用于 worker 写回可见任务状态。 */
+  status: "extracting_audio" | "transcribing_audio";
+  /** 面向用户或运维排查的阶段说明。 */
+  message: string;
+  /** 阶段相关的结构化信息，例如模型、设备、耗时。 */
+  metadata?: Record<string, unknown>;
+};
+
 export type FetchTranscriptInput = {
   /** 用户或 agent 原始提交的视频链接。 */
   sourceUrl: string;
@@ -27,6 +36,8 @@ export type FetchTranscriptInput = {
   platform: VideoPlatform;
   /** 没有可用平台字幕时，是否允许后续回退到音频提取和 ASR。 */
   fallbackToAudio: boolean;
+  /** 可选进度回调；provider 可用它报告音频下载、ASR 等长耗时子阶段。 */
+  onProgress?: (event: TranscriptProgressEvent) => Promise<void> | void;
 };
 
 export type TranscriptProvider = {

@@ -164,6 +164,8 @@ describe("createBilibiliTranscriptProvider", () => {
   });
 
   test("downloads Bilibili audio and transcribes it with faster-whisper when audio fallback is enabled", async () => {
+    const progressEvents = [];
+
     process.env.FASTER_WHISPER_PYTHON_PATH = "python-test";
     process.env.FASTER_WHISPER_SCRIPT_PATH =
       "D:\\code\\next-project\\video-digest-nextjs\\scripts\\asr\\faster-whisper-transcribe.py";
@@ -199,6 +201,9 @@ describe("createBilibiliTranscriptProvider", () => {
     const provider = createBilibiliTranscriptProvider();
     const transcript = await provider.fetchTranscript({
       fallbackToAudio: true,
+      onProgress: async (event) => {
+        progressEvents.push(event);
+      },
       platform: "bilibili",
       sourceUrl,
     });
@@ -243,6 +248,14 @@ describe("createBilibiliTranscriptProvider", () => {
       "zh",
       "--vad-filter",
     ]);
+    assert.deepEqual(
+      progressEvents.map((event) => event.status),
+      ["extracting_audio", "transcribing_audio"],
+    );
+    assert.equal(progressEvents[0].metadata.provider, "yt-dlp");
+    assert.equal(progressEvents[1].metadata.provider, "faster-whisper");
+    assert.equal(progressEvents[1].metadata.model, "base");
+    assert.equal(progressEvents[1].metadata.device, "cpu");
   });
 
   test("wraps faster-whisper failures for Bilibili audio fallback", async () => {

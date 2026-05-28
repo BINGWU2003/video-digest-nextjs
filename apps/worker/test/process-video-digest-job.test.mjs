@@ -56,6 +56,74 @@ describe("processVideoDigestJob", () => {
     assert.equal(dependencies.createdSummaries.length, 0);
   });
 
+  test("records Bilibili audio extraction and transcription progress", async () => {
+    const dependencies = createDependencies({
+      record: createVideoRecordRow({
+        fallbackToAudio: true,
+        platform: "bilibili",
+        sourceUrl: "https://www.bilibili.com/video/BV1demo/",
+      }),
+      transcriptProgressEvents: [
+        {
+          status: "extracting_audio",
+          message: "开始下载 Bilibili 音频。",
+          metadata: {
+            provider: "yt-dlp",
+          },
+        },
+        {
+          status: "transcribing_audio",
+          message: "音频已下载，开始 faster-whisper 转写。",
+          metadata: {
+            model: "base",
+            provider: "faster-whisper",
+          },
+        },
+      ],
+      transcriptResult: createTranscriptResult({
+        source: "asr",
+      }),
+    });
+
+    await processVideoDigestJob(dependencies, payload, context);
+
+    assert.deepEqual(
+      dependencies.statusUpdates.map((update) => update.status),
+      [
+        "fetching_metadata",
+        "extracting_transcript",
+        "extracting_audio",
+        "transcribing_audio",
+        "summarizing",
+        "completed",
+      ],
+    );
+    assert.deepEqual(
+      dependencies.createdJobEvents.map((event) => event.status),
+      [
+        "fetching_metadata",
+        "extracting_transcript",
+        "extracting_audio",
+        "transcribing_audio",
+        "summarizing",
+        "completed",
+      ],
+    );
+    assert.equal(
+      dependencies.createdJobEvents[2].metadata.provider,
+      "yt-dlp",
+    );
+    assert.equal(
+      dependencies.createdJobEvents[3].metadata.provider,
+      "faster-whisper",
+    );
+    assert.equal(
+      dependencies.createdJobEvents[3].metadata.model,
+      "base",
+    );
+    assert.equal(dependencies.createdTranscripts[0].source, "asr");
+  });
+
   test("delivers summary emails and completes summary_and_email jobs", async () => {
     const dependencies = createDependencies({
       record: createVideoRecordRow({
@@ -451,11 +519,15 @@ function createDependencies(options = {}) {
           async fetchTranscript(input) {
             transcriptCalls.push(input);
 
+            for (const event of options.transcriptProgressEvents ?? []) {
+              await input.onProgress?.(event);
+            }
+
             if (options.transcriptError) {
               throw options.transcriptError;
             }
 
-            return createTranscriptResult();
+            return options.transcriptResult ?? createTranscriptResult();
           },
         };
       },
@@ -596,7 +668,7 @@ function findRecord(records, id, ownerId) {
   return record;
 }
 
-function createTranscriptResult() {
+function createTranscriptResult(overrides = {}) {
   return {
     language: "zh-CN",
     plainText: "第一段\n第二段",
@@ -613,6 +685,7 @@ function createTranscriptResult() {
       },
     ],
     source: "manual_subtitle",
+    ...overrides,
   };
 }
 

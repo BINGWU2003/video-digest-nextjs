@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import type {
   FetchTranscriptInput,
+  TranscriptProgressEvent,
   TranscriptProvider,
   TranscriptResult,
   TranscriptSegment,
@@ -64,9 +65,19 @@ async function fetchBilibiliTranscriptWithAudioAsr(
 ): Promise<TranscriptResult> {
   const ytDlpPath = process.env.YTDLP_PATH ?? "yt-dlp";
   const tempDirectory = await mkdtemp(join(tmpdir(), "video-digest-bili-audio-"));
+  const audioDownloadStartedAt = Date.now();
   let ytDlpError: unknown = null;
 
   try {
+    await notifyTranscriptProgress(input, {
+      message: "开始下载 Bilibili 音频。",
+      metadata: {
+        format: "bestaudio[ext=m4a]/bestaudio",
+        provider: "yt-dlp",
+      },
+      status: "extracting_audio",
+    });
+
     try {
       await runYtDlpAudioDownload({
         outputTemplate: join(tempDirectory, "%(id)s.%(ext)s"),
@@ -94,7 +105,27 @@ async function fetchBilibiliTranscriptWithAudioAsr(
       );
     }
 
-    const transcription = await transcribeAudioWithFasterWhisper(audioFile);
+    const fasterWhisperOptions = getFasterWhisperOptions();
+
+    await notifyTranscriptProgress(input, {
+      message: "音频已下载，开始 faster-whisper 转写。",
+      metadata: {
+        audioDownloadDurationMs: Date.now() - audioDownloadStartedAt,
+        audioExtension: audioFile.extension,
+        computeType: fasterWhisperOptions.computeType,
+        device: fasterWhisperOptions.device,
+        language: fasterWhisperOptions.language ?? null,
+        model: fasterWhisperOptions.model,
+        provider: "faster-whisper",
+        vadFilter: fasterWhisperOptions.vadFilter,
+      },
+      status: "transcribing_audio",
+    });
+
+    const transcription = await transcribeAudioWithFasterWhisper(
+      audioFile,
+      fasterWhisperOptions,
+    );
 
     if (!transcription.plainText?.trim()) {
       throw new TranscriptNotFoundError(
@@ -123,6 +154,13 @@ async function fetchBilibiliTranscriptWithAudioAsr(
       recursive: true,
     });
   }
+}
+
+async function notifyTranscriptProgress(
+  input: FetchTranscriptInput,
+  event: TranscriptProgressEvent,
+) {
+  await input.onProgress?.(event);
 }
 
 async function fetchBilibiliTranscriptWithYtDlp(
@@ -336,35 +374,34 @@ function getYtDlpAudioFilePriority(extension: string) {
 
 async function transcribeAudioWithFasterWhisper(
   audioFile: YtDlpAudioFile,
+  options = getFasterWhisperOptions(),
 ): Promise<TranscriptResult> {
-  const pythonPath = process.env.FASTER_WHISPER_PYTHON_PATH ?? "python";
   const args = [
     resolveFasterWhisperScriptPath(),
     "--audio",
     audioFile.path,
     "--model",
-    process.env.FASTER_WHISPER_MODEL ?? defaultFasterWhisperModel,
+    options.model,
     "--device",
-    process.env.FASTER_WHISPER_DEVICE ?? "cpu",
+    options.device,
     "--compute-type",
-    process.env.FASTER_WHISPER_COMPUTE_TYPE ?? "int8",
+    options.computeType,
     "--beam-size",
-    process.env.FASTER_WHISPER_BEAM_SIZE ?? "5",
+    options.beamSize,
   ];
-  const language = process.env.FASTER_WHISPER_LANGUAGE;
 
-  if (language) {
-    args.push("--language", language);
+  if (options.language) {
+    args.push("--language", options.language);
   }
 
-  if (process.env.FASTER_WHISPER_VAD_FILTER !== "false") {
+  if (options.vadFilter) {
     args.push("--vad-filter");
   }
 
   let stdout: string;
 
   try {
-    ({ stdout } = await execFileAsync(pythonPath, args, {
+    ({ stdout } = await execFileAsync(options.pythonPath, args, {
       env: process.env,
       maxBuffer: 1024 * 1024 * 30,
       timeout: bilibiliAsrTimeoutMs,
@@ -420,6 +457,18 @@ async function transcribeAudioWithFasterWhisper(
             },
           ],
     source: "asr",
+  };
+}
+
+function getFasterWhisperOptions() {
+  return {
+    beamSize: process.env.FASTER_WHISPER_BEAM_SIZE ?? "5",
+    computeType: process.env.FASTER_WHISPER_COMPUTE_TYPE ?? "int8",
+    device: process.env.FASTER_WHISPER_DEVICE ?? "cpu",
+    language: process.env.FASTER_WHISPER_LANGUAGE || null,
+    model: process.env.FASTER_WHISPER_MODEL ?? defaultFasterWhisperModel,
+    pythonPath: process.env.FASTER_WHISPER_PYTHON_PATH ?? "python",
+    vadFilter: process.env.FASTER_WHISPER_VAD_FILTER !== "false",
   };
 }
 

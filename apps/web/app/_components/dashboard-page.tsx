@@ -1,5 +1,8 @@
 import Link from "next/link";
-import type { VideoRecordRow } from "@video-digest-nextjs/database";
+import type {
+  EmailAddressRow,
+  VideoRecordRow,
+} from "@video-digest-nextjs/database";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,10 +24,12 @@ import { ArrowRightIcon, MailIcon, VideoIcon } from "./icons";
 import { createVideoDigestJobAction } from "../dashboard/actions";
 
 export function DashboardPage({
+  emailAddresses,
   errorMessage,
   records,
   userEmail,
 }: {
+  emailAddresses: EmailAddressRow[];
   errorMessage?: string;
   records: VideoRecordRow[];
   userEmail?: string;
@@ -35,6 +40,7 @@ export function DashboardPage({
   const activeCount = records.filter(
     (record) => record.status !== "completed" && record.status !== "failed",
   ).length;
+  const emailStatus = getDashboardEmailStatus(emailAddresses, userEmail);
 
   return (
     <AppShell current="/dashboard" userEmail={userEmail}>
@@ -194,19 +200,26 @@ export function DashboardPage({
           <Panel>
             <PanelHeader
               title="邮箱状态"
-              action={<StatusBadge tone="green">已验证</StatusBadge>}
+              action={
+                <StatusBadge tone={emailStatus.tone}>
+                  {emailStatus.badge}
+                </StatusBadge>
+              }
             />
             <div className="flex items-start gap-3 p-5">
               <span className="grid size-9 shrink-0 place-items-center rounded-md bg-blue-50 text-blue-700">
                 <MailIcon />
               </span>
-              <div>
+              <div className="min-w-0">
                 <p className="font-medium text-slate-950">
-                  {userEmail ?? "未读取到邮箱"}
+                  {emailStatus.email}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">
-                  邮件投递模块接入后会使用已验证邮箱。
+                  {emailStatus.description}
                 </p>
+                <Button asChild variant="outline" size="sm" className="mt-3">
+                  <Link href="/settings/emails">管理邮箱</Link>
+                </Button>
               </div>
             </div>
           </Panel>
@@ -255,4 +268,65 @@ export function DashboardPage({
       </Panel>
     </AppShell>
   );
+}
+
+type DashboardEmailStatus = {
+  badge: string;
+  description: string;
+  email: string;
+  tone: "amber" | "blue" | "green" | "slate";
+};
+
+function getDashboardEmailStatus(
+  emailAddresses: EmailAddressRow[],
+  userEmail: string | undefined,
+): DashboardEmailStatus {
+  const defaultVerifiedEmail = emailAddresses.find(
+    (emailAddress) =>
+      emailAddress.isDefault && emailAddress.status === "verified",
+  );
+
+  if (defaultVerifiedEmail) {
+    return {
+      badge: "已验证",
+      description: defaultVerifiedEmail.lastSentAt
+        ? `默认收件邮箱。上次发送：${formatDateTime(defaultVerifiedEmail.lastSentAt)}。`
+        : "默认收件邮箱，生成摘要并邮件投递时会使用它。",
+      email: defaultVerifiedEmail.email,
+      tone: "green",
+    };
+  }
+
+  const verifiedEmail = emailAddresses.find(
+    (emailAddress) => emailAddress.status === "verified",
+  );
+
+  if (verifiedEmail) {
+    return {
+      badge: "未设默认",
+      description: "已有已验证邮箱，但还没有设为默认收件邮箱。",
+      email: verifiedEmail.email,
+      tone: "amber",
+    };
+  }
+
+  const pendingEmail = emailAddresses.find(
+    (emailAddress) => emailAddress.status === "pending",
+  );
+
+  if (pendingEmail) {
+    return {
+      badge: "待验证",
+      description: "验证通过后才能用于摘要邮件投递。",
+      email: pendingEmail.email,
+      tone: "amber",
+    };
+  }
+
+  return {
+    badge: "未配置",
+    description: "请先添加并验证默认收件邮箱，之后才能使用邮件投递。",
+    email: userEmail ?? "未读取到邮箱",
+    tone: "slate",
+  };
 }

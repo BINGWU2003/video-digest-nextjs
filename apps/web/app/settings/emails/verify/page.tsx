@@ -80,6 +80,7 @@ export default async function VerifyEmailPage({
   }
 
   revalidatePath("/settings/emails");
+  revalidatePath("/dashboard");
   redirectWithMessage("邮箱验证成功。");
 }
 

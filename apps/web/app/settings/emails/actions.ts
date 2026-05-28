@@ -54,6 +54,7 @@ export async function useLoginEmailAsDefaultAction() {
   }
 
   revalidatePath("/settings/emails");
+  revalidatePath("/dashboard");
   redirect(
     `/settings/emails?message=${encodeURIComponent("已将当前登录邮箱设为默认收件邮箱。")}`,
   );
@@ -128,6 +129,7 @@ export async function requestEmailVerificationAction(formData: FormData) {
   }
 
   revalidatePath("/settings/emails");
+  revalidatePath("/dashboard");
   redirect(
     `/settings/emails?message=${encodeURIComponent("验证邮件已发送，请查收并点击邮件里的链接。")}`,
   );
@@ -165,6 +167,7 @@ export async function setDefaultEmailAddressAction(formData: FormData) {
   }
 
   revalidatePath("/settings/emails");
+  revalidatePath("/dashboard");
   redirect(
     `/settings/emails?message=${encodeURIComponent("默认收件邮箱已更新。")}`,
   );
@@ -230,6 +233,7 @@ export async function deleteEmailAddressAction(formData: FormData) {
   }
 
   revalidatePath("/settings/emails");
+  revalidatePath("/dashboard");
 
   redirect(
     `/settings/emails?message=${encodeURIComponent(resultMessage)}`,

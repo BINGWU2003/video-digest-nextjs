@@ -1,6 +1,8 @@
 import { DashboardPage } from "../_components/dashboard-page";
 import {
+  createSupabaseEmailAddressesRepository,
   createSupabaseVideoRecordsRepository,
+  type EmailAddressRow,
   isMissingDatabaseSchemaError,
   type VideoRecordRow,
 } from "@video-digest-nextjs/database";
@@ -17,14 +19,22 @@ export default async function Page({
   const user = await requireUser();
   const supabase = await createClient();
   const repository = createSupabaseVideoRecordsRepository(supabase);
+  const emailAddressesRepository =
+    createSupabaseEmailAddressesRepository(supabase);
+  let emailAddresses: EmailAddressRow[] = [];
   let records: VideoRecordRow[] = [];
   let databaseErrorMessage: string | undefined;
 
   try {
-    records = await repository.listForUser({
-      limit: 20,
-      userId: user.id,
-    });
+    [records, emailAddresses] = await Promise.all([
+      repository.listForUser({
+        limit: 20,
+        userId: user.id,
+      }),
+      emailAddressesRepository.listForUser({
+        userId: user.id,
+      }),
+    ]);
   } catch (caught) {
     if (!isMissingDatabaseSchemaError(caught)) {
       throw caught;
@@ -38,6 +48,7 @@ export default async function Page({
 
   return (
     <DashboardPage
+      emailAddresses={emailAddresses}
       errorMessage={resolvedSearchParams?.error ?? databaseErrorMessage}
       records={records}
       userEmail={user.email}

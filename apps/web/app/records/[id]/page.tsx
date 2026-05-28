@@ -148,11 +148,16 @@ export default async function RecordDetailPage({
               <input name="id" type="hidden" value={record.id} />
               <Button
                 disabled={!retryable}
+                title={
+                  retryable
+                    ? "重新从视频信息、字幕提取和摘要生成开始处理。"
+                    : "当前任务正在处理中，暂不能重新处理。"
+                }
                 type="submit"
                 variant="outline"
               >
                 <RefreshIcon />
-                重试
+                重新处理
               </Button>
             </form>
             <form action={cancelVideoDigestJobAction}>
@@ -715,7 +720,7 @@ function resolveActiveStep(status: VideoRecordStatus) {
 }
 
 function isRetryableStatus(status: VideoRecordStatus) {
-  return status === "failed" || status === "cancelled";
+  return status === "failed" || status === "cancelled" || status === "completed";
 }
 
 function isCancellableStatus(status: VideoRecordStatus) {

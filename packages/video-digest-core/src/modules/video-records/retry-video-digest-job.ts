@@ -56,7 +56,7 @@ export async function retryVideoDigestJob(
 
   try {
     await dependencies.jobEventsRepository.create({
-      message: "用户重新提交失败任务，等待后台处理。",
+      message: "用户重新处理任务，等待后台处理。",
       metadata: {
         previousErrorCode: record.errorCode,
         previousStatus: record.status,
@@ -116,6 +116,6 @@ export async function retryVideoDigestJob(
 
 export function isRetryableStatus(
   status: VideoRecordStatus,
-): status is "cancelled" | "failed" {
-  return status === "cancelled" || status === "failed";
+): status is "cancelled" | "completed" | "failed" {
+  return status === "cancelled" || status === "completed" || status === "failed";
 }

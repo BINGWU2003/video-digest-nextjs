@@ -151,6 +151,44 @@ describe("retryVideoDigestJob", () => {
     assert.equal(dependencies.enqueuedJobs.length, 0);
   });
 
+  test("reprocesses a completed record", async () => {
+    const record = createVideoRecordRow({
+      completedAt: fixedDate,
+      id: "88888888-8888-4888-8888-888888888888",
+      status: "completed",
+    });
+    const dependencies = createDependencies({ records: [record] });
+
+    const result = await retryVideoDigestJob(dependencies, {
+      recordId: record.id,
+      userId,
+    });
+
+    assert.equal(result.retried, true);
+    assert.equal(result.enqueued, true);
+    assert.equal(result.record.status, "queued");
+    assert.deepEqual(dependencies.statusUpdates, [
+      {
+        completedAt: null,
+        errorCode: null,
+        errorMessage: null,
+        expectedStatus: "completed",
+        id: record.id,
+        status: "queued",
+        userId,
+      },
+    ]);
+    assert.deepEqual(dependencies.createdJobEvents[0].metadata, {
+      previousErrorCode: null,
+      previousStatus: "completed",
+      retriedAt: fixedDate.toISOString(),
+    });
+    assert.equal(
+      dependencies.enqueuedJobs[0].options.queueJobId,
+      `${record.id}-retry-${fixedDate.getTime()}`,
+    );
+  });
+
   test("marks the record failed when retry enqueue fails", async () => {
     const record = createVideoRecordRow({
       errorCode: "worker_processing_failed",

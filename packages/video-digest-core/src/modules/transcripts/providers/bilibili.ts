@@ -1,23 +1,20 @@
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 
 import type {
   FetchTranscriptInput,
-  TranscriptProgressEvent,
   TranscriptProvider,
   TranscriptResult,
   TranscriptSegment,
 } from "../types.js";
 import { TranscriptFetchError, TranscriptNotFoundError } from "../types.js";
+import { fetchAudioAsrTranscriptWithYtDlp } from "./audio-asr.js";
 
 const bilibiliYtDlpTimeoutMs = 120_000;
-const bilibiliAsrTimeoutMs = 1_800_000;
-const defaultFasterWhisperModel = "small";
 const ytDlpSubtitleLanguages = "zh.*,en.*";
 const execFileAsync = promisify(execFile);
 
@@ -31,20 +28,6 @@ const bilibiliJsonTranscriptSchema = z.object({
       }),
     )
     .optional(),
-});
-
-const fasterWhisperTranscriptionResponseSchema = z.object({
-  language: z.string().min(1).nullable().optional(),
-  segments: z
-    .array(
-      z.object({
-        end: z.number().nonnegative().nullable().optional(),
-        start: z.number().nonnegative().nullable().optional(),
-        text: z.string().optional(),
-      }),
-    )
-    .optional(),
-  text: z.string().optional(),
 });
 
 export function createBilibiliTranscriptProvider(): TranscriptProvider {
@@ -63,104 +46,12 @@ export function createBilibiliTranscriptProvider(): TranscriptProvider {
 async function fetchBilibiliTranscriptWithAudioAsr(
   input: FetchTranscriptInput,
 ): Promise<TranscriptResult> {
-  const ytDlpPath = process.env.YTDLP_PATH ?? "yt-dlp";
-  const tempDirectory = await mkdtemp(join(tmpdir(), "video-digest-bili-audio-"));
-  const audioDownloadStartedAt = Date.now();
-  let ytDlpError: unknown = null;
-
-  try {
-    await notifyTranscriptProgress(input, {
-      message: "开始下载 Bilibili 音频。",
-      metadata: {
-        format: "bestaudio[ext=m4a]/bestaudio",
-        provider: "yt-dlp",
-      },
-      status: "extracting_audio",
-    });
-
-    try {
-      await runYtDlpAudioDownload({
-        outputTemplate: join(tempDirectory, "%(id)s.%(ext)s"),
-        sourceUrl: input.sourceUrl,
-        ytDlpPath,
-      });
-    } catch (caught) {
-      ytDlpError = caught;
-    }
-
-    const audioFile = await findBestYtDlpAudioFile(tempDirectory);
-
-    if (!audioFile) {
-      if (ytDlpError) {
-        throw new TranscriptFetchError(
-          "bilibili",
-          `yt-dlp 音频下载失败：${getYtDlpErrorDetail(ytDlpError)}`,
-          ytDlpError,
-        );
-      }
-
-      throw new TranscriptNotFoundError(
-        "bilibili",
-        "yt-dlp 未下载到可用于转写的音频文件。",
-      );
-    }
-
-    const fasterWhisperOptions = getFasterWhisperOptions();
-
-    await notifyTranscriptProgress(input, {
-      message: "音频已下载，开始 faster-whisper 转写。",
-      metadata: {
-        audioDownloadDurationMs: Date.now() - audioDownloadStartedAt,
-        audioExtension: audioFile.extension,
-        computeType: fasterWhisperOptions.computeType,
-        device: fasterWhisperOptions.device,
-        language: fasterWhisperOptions.language ?? null,
-        model: fasterWhisperOptions.model,
-        provider: "faster-whisper",
-        vadFilter: fasterWhisperOptions.vadFilter,
-      },
-      status: "transcribing_audio",
-    });
-
-    const transcription = await transcribeAudioWithFasterWhisper(
-      audioFile,
-      fasterWhisperOptions,
-    );
-
-    if (!transcription.plainText?.trim()) {
-      throw new TranscriptNotFoundError(
-        "bilibili",
-        "ASR 未返回可用转写文本。",
-      );
-    }
-
-    return transcription;
-  } catch (caught) {
-    if (
-      caught instanceof TranscriptFetchError ||
-      caught instanceof TranscriptNotFoundError
-    ) {
-      throw caught;
-    }
-
-    throw new TranscriptFetchError(
-      "bilibili",
-      "Bilibili 音频转写失败。",
-      caught,
-    );
-  } finally {
-    await rm(tempDirectory, {
-      force: true,
-      recursive: true,
-    });
-  }
-}
-
-async function notifyTranscriptProgress(
-  input: FetchTranscriptInput,
-  event: TranscriptProgressEvent,
-) {
-  await input.onProgress?.(event);
+  return fetchAudioAsrTranscriptWithYtDlp({
+    ...input,
+    platform: "bilibili",
+    platformLabel: "Bilibili",
+    tempDirectoryPrefix: "video-digest-bili-audio-",
+  });
 }
 
 async function fetchBilibiliTranscriptWithYtDlp(
@@ -266,36 +157,6 @@ async function runYtDlpSubtitleDownload(input: RunYtDlpSubtitleDownloadInput) {
   });
 }
 
-type RunYtDlpAudioDownloadInput = {
-  outputTemplate: string;
-  sourceUrl: string;
-  ytDlpPath: string;
-};
-
-async function runYtDlpAudioDownload(input: RunYtDlpAudioDownloadInput) {
-  const args = [
-    "--no-playlist",
-    "--format",
-    "bestaudio[ext=m4a]/bestaudio",
-    "--output",
-    input.outputTemplate,
-  ];
-  const proxyUrl = process.env.LOCAL_PROXY_URL;
-
-  if (proxyUrl) {
-    args.push("--proxy", proxyUrl);
-  }
-
-  args.push(input.sourceUrl);
-
-  await execFileAsync(input.ytDlpPath, args, {
-    env: createYtDlpEnvironment(proxyUrl),
-    maxBuffer: 1024 * 1024 * 10,
-    timeout: bilibiliYtDlpTimeoutMs,
-    windowsHide: true,
-  });
-}
-
 function createYtDlpEnvironment(proxyUrl: string | undefined) {
   if (!proxyUrl) {
     return process.env;
@@ -307,206 +168,6 @@ function createYtDlpEnvironment(proxyUrl: string | undefined) {
     HTTP_PROXY: process.env.HTTP_PROXY ?? proxyUrl,
     HTTPS_PROXY: process.env.HTTPS_PROXY ?? proxyUrl,
   };
-}
-
-type YtDlpAudioFile = {
-  extension: string;
-  path: string;
-  priority: number;
-};
-
-async function findBestYtDlpAudioFile(
-  directory: string,
-): Promise<YtDlpAudioFile | null> {
-  const fileNames = await readdir(directory);
-  const audioFiles = fileNames
-    .map((fileName) => toYtDlpAudioFile(directory, fileName))
-    .filter((file): file is YtDlpAudioFile => file !== null)
-    .sort((left, right) => left.priority - right.priority);
-
-  return audioFiles[0] ?? null;
-}
-
-function toYtDlpAudioFile(
-  directory: string,
-  fileName: string,
-): YtDlpAudioFile | null {
-  const match = /\.([^.]+)$/u.exec(fileName);
-
-  if (!match) {
-    return null;
-  }
-
-  const extension = match[1]!.toLowerCase();
-  const supportedExtensions = new Set([
-    "m4a",
-    "mp3",
-    "mp4",
-    "mpeg",
-    "mpga",
-    "opus",
-    "wav",
-    "webm",
-  ]);
-
-  if (!supportedExtensions.has(extension)) {
-    return null;
-  }
-
-  return {
-    extension,
-    path: join(directory, fileName),
-    priority: getYtDlpAudioFilePriority(extension),
-  };
-}
-
-function getYtDlpAudioFilePriority(extension: string) {
-  if (extension === "m4a") {
-    return 0;
-  }
-
-  if (extension === "mp3" || extension === "mp4") {
-    return 1;
-  }
-
-  return 2;
-}
-
-async function transcribeAudioWithFasterWhisper(
-  audioFile: YtDlpAudioFile,
-  options = getFasterWhisperOptions(),
-): Promise<TranscriptResult> {
-  const args = [
-    resolveFasterWhisperScriptPath(),
-    "--audio",
-    audioFile.path,
-    "--model",
-    options.model,
-    "--device",
-    options.device,
-    "--compute-type",
-    options.computeType,
-    "--beam-size",
-    options.beamSize,
-  ];
-
-  if (options.language) {
-    args.push("--language", options.language);
-  }
-
-  if (options.vadFilter) {
-    args.push("--vad-filter");
-  }
-
-  let stdout: string;
-
-  try {
-    ({ stdout } = await execFileAsync(options.pythonPath, args, {
-      env: process.env,
-      maxBuffer: 1024 * 1024 * 30,
-      timeout: bilibiliAsrTimeoutMs,
-      windowsHide: true,
-    }));
-  } catch (caught) {
-    throw new TranscriptFetchError(
-      "bilibili",
-      `faster-whisper 执行失败：${getYtDlpErrorDetail(caught)}`,
-      caught,
-    );
-  }
-
-  let responseBody: unknown;
-
-  try {
-    responseBody = JSON.parse(stdout);
-  } catch (caught) {
-    throw new TranscriptFetchError(
-      "bilibili",
-      "faster-whisper 输出不是有效 JSON。",
-      caught,
-    );
-  }
-
-  const parsedTranscription =
-    fasterWhisperTranscriptionResponseSchema.safeParse(responseBody);
-
-  if (!parsedTranscription.success) {
-    throw new TranscriptFetchError(
-      "bilibili",
-      "faster-whisper 输出结构无效。",
-      parsedTranscription.error,
-    );
-  }
-
-  const segments = toAsrTranscriptSegments(parsedTranscription.data);
-  const plainText =
-    parsedTranscription.data.text?.trim() ||
-    segments.map((segment) => segment.text).join("\n");
-
-  return {
-    language: parsedTranscription.data.language ?? null,
-    plainText,
-    segments:
-      segments.length > 0
-        ? segments
-        : [
-            {
-              endSeconds: null,
-              startSeconds: null,
-              text: plainText,
-            },
-          ],
-    source: "asr",
-  };
-}
-
-function getFasterWhisperOptions() {
-  return {
-    beamSize: process.env.FASTER_WHISPER_BEAM_SIZE ?? "5",
-    computeType: process.env.FASTER_WHISPER_COMPUTE_TYPE ?? "int8",
-    device: process.env.FASTER_WHISPER_DEVICE ?? "cpu",
-    language: process.env.FASTER_WHISPER_LANGUAGE || null,
-    model: process.env.FASTER_WHISPER_MODEL ?? defaultFasterWhisperModel,
-    pythonPath: process.env.FASTER_WHISPER_PYTHON_PATH ?? "python",
-    vadFilter: process.env.FASTER_WHISPER_VAD_FILTER !== "false",
-  };
-}
-
-function resolveFasterWhisperScriptPath() {
-  const configuredScriptPath = process.env.FASTER_WHISPER_SCRIPT_PATH;
-
-  if (configuredScriptPath) {
-    return configuredScriptPath;
-  }
-
-  const candidates = [
-    resolve(process.cwd(), "scripts/asr/faster-whisper-transcribe.py"),
-    resolve(process.cwd(), "../../scripts/asr/faster-whisper-transcribe.py"),
-  ];
-  const scriptPath = candidates.find((candidate) => existsSync(candidate));
-
-  if (!scriptPath) {
-    throw new TranscriptFetchError(
-      "bilibili",
-      "找不到 faster-whisper 转写脚本，请配置 FASTER_WHISPER_SCRIPT_PATH。",
-    );
-  }
-
-  return scriptPath;
-}
-
-function toAsrTranscriptSegments(
-  transcription: z.infer<typeof fasterWhisperTranscriptionResponseSchema>,
-) {
-  return (
-    transcription.segments
-      ?.map((segment) => ({
-        endSeconds: segment.end ?? null,
-        startSeconds: segment.start ?? null,
-        text: segment.text?.replace(/\s+/gu, " ").trim() ?? "",
-      }))
-      .filter((segment) => segment.text.length > 0) ?? []
-  );
 }
 
 type YtDlpSubtitleFile = {

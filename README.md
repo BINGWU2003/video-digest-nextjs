@@ -44,7 +44,7 @@ supabase/migrations/   Supabase SQL migrations
 
 - 邮箱登录、记录列表、记录详情、邮箱设置、MCP Token 设置和用量页面。
 - 通过 Web 表单、`POST /api/records` 或 `POST /api/mcp` 创建视频摘要任务。
-- YouTube 元数据和字幕提取使用 `yt-dlp`。
+- YouTube 元数据和字幕提取使用 `yt-dlp`；没有可用字幕且勾选音频转写时回退到本地 `faster-whisper`。
 - Bilibili 元数据、公开字幕和音频下载使用 `yt-dlp`；勾选音频转写时通过本地 `faster-whisper` 生成 ASR 字幕。
 - 摘要生成使用 OpenAI-compatible API。
 - 邮件投递使用 Resend，并通过 `/api/webhooks/resend` 同步 `sent`、`delivered`、`delivery_delayed`、`bounced`、`complained` 等真实状态。

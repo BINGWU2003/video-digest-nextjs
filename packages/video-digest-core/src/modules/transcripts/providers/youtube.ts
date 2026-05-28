@@ -12,6 +12,7 @@ import type {
   TranscriptSegment,
 } from "../types.js";
 import { TranscriptFetchError, TranscriptNotFoundError } from "../types.js";
+import { fetchAudioAsrTranscriptWithYtDlp } from "./audio-asr.js";
 
 const youtubeYtDlpTimeoutMs = 120_000;
 const ytDlpSubtitleLanguages = "yue.*,zh.*,en.*,-live_chat";
@@ -98,6 +99,10 @@ async function fetchYoutubeTranscriptWithYtDlp(
       caught instanceof TranscriptFetchError ||
       caught instanceof TranscriptNotFoundError
     ) {
+      if (input.fallbackToAudio) {
+        return fetchYoutubeTranscriptWithAudioAsr(input);
+      }
+
       throw caught;
     }
 
@@ -108,6 +113,17 @@ async function fetchYoutubeTranscriptWithYtDlp(
       recursive: true,
     });
   }
+}
+
+async function fetchYoutubeTranscriptWithAudioAsr(
+  input: FetchTranscriptInput,
+): Promise<TranscriptResult> {
+  return fetchAudioAsrTranscriptWithYtDlp({
+    ...input,
+    platform: "youtube",
+    platformLabel: "YouTube",
+    tempDirectoryPrefix: "video-digest-youtube-audio-",
+  });
 }
 
 type RunYtDlpSubtitleDownloadInput = {

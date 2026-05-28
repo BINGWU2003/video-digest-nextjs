@@ -5,8 +5,8 @@
 ## 职责
 
 - 监听 `video-digest` 队列中的 `process-video-digest` job。
-- 使用 yt-dlp 读取 YouTube/Bilibili 元数据、字幕和 Bilibili audio-only 文件。
-- 在 Bilibili 音频 fallback 开启时调用本地 faster-whisper 生成 ASR 字幕。
+- 使用 yt-dlp 读取 YouTube/Bilibili 元数据、字幕和 audio-only 文件。
+- 在音频 fallback 开启时调用本地 faster-whisper 生成 ASR 字幕。
 - 调用 OpenAI-compatible API 生成结构化摘要。
 - 调用 Resend 投递摘要邮件。
 - 写回 `video_records`、`job_events`、`usage_events`、`transcripts`、`summaries` 和 `delivery_records`。
@@ -57,7 +57,7 @@ LOCAL_PROXY_URL=http://127.0.0.1:10808
 
 `YTDLP_PATH` 默认可写 `yt-dlp`；Docker/Railway 这类环境可写绝对路径，例如 `/usr/local/bin/yt-dlp`。
 
-Bilibili 勾选“无字幕时转写音频”后会直接走音频转写：worker 先用 yt-dlp 下载 `bestaudio`，再调用本地 Python 脚本 `scripts/asr/faster-whisper-transcribe.py`。首次运行前先安装：
+勾选“无字幕时转写音频”后，Bilibili 会直接走音频转写；YouTube 会先尝试公开字幕，字幕不可用时再回退到音频转写。worker 会先用 yt-dlp 下载 `bestaudio`，再调用本地 Python 脚本 `scripts/asr/faster-whisper-transcribe.py`。首次运行前先安装：
 
 ```bash
 python -m pip install -r scripts/asr/requirements.txt
@@ -103,7 +103,7 @@ startWorker()
 
 ## 当前限制
 
-- YouTube provider 已接 yt-dlp。
+- YouTube provider 已接 yt-dlp 元数据、字幕和音频转写 fallback。
 - Bilibili provider 已接 yt-dlp 元数据、字幕和音频转写 fallback。
 - 长视频音频可能受 ASR 服务文件大小和超时限制，需要后续增加分片转写。
 

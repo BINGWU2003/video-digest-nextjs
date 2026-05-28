@@ -53,7 +53,7 @@ src/modules/email-delivery/
 ## Provider 状态
 
 - YouTube 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download`。
-- YouTube 字幕 provider 使用 `yt-dlp` 下载 `json3` 或 `vtt` 字幕并解析分段。
+- YouTube 字幕 provider 使用 `yt-dlp` 下载 `json3` 或 `vtt` 字幕并解析分段；`fallbackToAudio` 开启且字幕不可用时回退到本地 faster-whisper。
 - Bilibili 元数据 provider 使用 `yt-dlp --dump-single-json --skip-download`。
 - Bilibili 字幕 provider 使用 `yt-dlp` 下载公开字幕；`fallbackToAudio` 开启时改为下载 audio-only 文件并调用本地 faster-whisper。
 - 摘要 provider 使用 OpenAI-compatible Chat Completions API。

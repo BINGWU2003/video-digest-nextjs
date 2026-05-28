@@ -4,6 +4,7 @@ import {
   createSupabaseSummariesRepository,
   createSupabaseTranscriptsRepository,
   createSupabaseVideoRecordsRepository,
+  type CreatedTranscript,
   type DeliveryRecordRow,
   type JobEventRow,
   type SummaryRow,
@@ -113,7 +114,13 @@ export default async function RecordDetailPage({
   const deliveryRecord = deliveryHistory[0] ?? null;
 
   const title = displayRecordTitle(record);
-  const activeStep = resolveActiveStep(record.status);
+  const activeStep = resolveActiveStep(record.status, events);
+  const timelineItems = buildTimelineItems({
+    activeStep,
+    events,
+    record,
+  });
+  const transcriptInsight = getTranscriptInsight(transcript, events);
   const cancellable = isCancellableStatus(record.status);
   const retryable = isRetryableStatus(record.status);
   const failureHint = getFailureHint(record.errorCode);
@@ -283,6 +290,9 @@ export default async function RecordDetailPage({
                 transcript?.transcript.source ?? record.transcriptSource,
               )}
             />
+            {transcriptInsight ? (
+              <TranscriptInsightPanel insight={transcriptInsight} />
+            ) : null}
             {transcript?.segments.length ? (
               <div className="divide-y divide-slate-200">
                 {transcript.segments.map((segment) => (
@@ -350,42 +360,40 @@ export default async function RecordDetailPage({
           <Panel>
             <PanelHeader title="处理时间线" />
             <ol className="grid gap-3 p-5">
-              {timelineSteps.map((step, index) => {
-                const completed =
-                  record.status === "completed" || index < activeStep;
-                const active =
-                  record.status !== "completed" &&
-                  record.status !== "failed" &&
-                  index === activeStep;
-                const failed =
-                  record.status === "failed" && index === activeStep;
-
-                return (
-                  <li key={step.label} className="flex gap-3">
-                    <span
-                      className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border text-xs font-semibold ${
-                        completed
-                          ? "border-emerald-600 bg-emerald-600 text-white"
-                          : failed
-                            ? "border-red-600 bg-red-600 text-white"
-                            : active
-                              ? "border-blue-600 bg-blue-600 text-white"
-                              : "border-slate-300 bg-white text-slate-400"
-                      }`}
-                    >
-                      {index + 1}
-                    </span>
-                    <span>
-                      <span className="block text-sm font-medium text-slate-900">
-                        {step.label}
+              {timelineItems.map((item, index) => (
+                <li key={item.label} className="grid grid-cols-[24px_1fr] gap-3">
+                  <span
+                    className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border text-xs font-semibold ${getTimelineMarkerClass(
+                      item.state,
+                    )}`}
+                  >
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-sm font-medium text-slate-900">
+                        {item.label}
                       </span>
-                      <span className="block text-xs text-slate-500">
-                        {completed ? "已完成" : failed ? "失败" : "待处理"}
+                      <span
+                        className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${getTimelineStateClass(
+                          item.state,
+                        )}`}
+                      >
+                        {item.stateLabel}
                       </span>
                     </span>
-                  </li>
-                );
-              })}
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">
+                      {item.timeLabel}
+                      {item.durationLabel ? ` · 距上一步 ${item.durationLabel}` : ""}
+                    </span>
+                    {item.message ? (
+                      <span className="mt-1 block text-xs leading-5 text-slate-600">
+                        {item.message}
+                      </span>
+                    ) : null}
+                  </span>
+                </li>
+              ))}
             </ol>
           </Panel>
 
@@ -409,6 +417,36 @@ export default async function RecordDetailPage({
         </div>
       </div>
     </AppShell>
+  );
+}
+
+type TranscriptInsight = {
+  details: Array<{ label: string; value: string }>;
+  warning: string | null;
+};
+
+function TranscriptInsightPanel({ insight }: { insight: TranscriptInsight }) {
+  return (
+    <div className="grid gap-4 border-b border-slate-200 p-5">
+      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {insight.details.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+          >
+            <dt className="text-xs text-slate-500">{item.label}</dt>
+            <dd className="mt-1 break-words text-sm font-medium text-slate-900">
+              {item.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {insight.warning ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+          {insight.warning}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -707,9 +745,349 @@ function formatMetadataValue(value: unknown) {
   }
 }
 
-function resolveActiveStep(status: VideoRecordStatus) {
-  if (status === "failed") {
-    return 2;
+type TimelineItemState =
+  | "active"
+  | "cancelled"
+  | "completed"
+  | "failed"
+  | "pending";
+
+type TimelineItem = {
+  durationLabel: string | null;
+  label: string;
+  message: string | null;
+  state: TimelineItemState;
+  stateLabel: string;
+  timeLabel: string;
+};
+
+function buildTimelineItems({
+  activeStep,
+  events,
+  record,
+}: {
+  activeStep: number;
+  events: JobEventRow[];
+  record: {
+    completedAt: Date | null;
+    createdAt: Date;
+    status: VideoRecordStatus;
+  };
+}): TimelineItem[] {
+  let previousTime: Date | null = null;
+
+  return timelineSteps.map((step, index) => {
+    const terminalEvent =
+      (record.status === "failed" || record.status === "cancelled") &&
+      index === activeStep
+        ? findLastEventByStatuses(events, [record.status])
+        : null;
+    const event =
+      terminalEvent ?? findFirstEventByStatuses(events, step.statuses);
+    const eventTime =
+      event?.createdAt ??
+      (index === 0
+        ? record.createdAt
+        : step.statuses.includes("completed") && record.status === "completed"
+          ? record.completedAt
+          : null);
+    const durationLabel =
+      eventTime && previousTime
+        ? formatElapsedDuration(eventTime.getTime() - previousTime.getTime())
+        : null;
+
+    if (eventTime) {
+      previousTime = eventTime;
+    }
+
+    const state = getTimelineItemState({
+      activeStep,
+      index,
+      status: record.status,
+    });
+
+    return {
+      durationLabel,
+      label: step.label,
+      message: event?.message ?? null,
+      state,
+      stateLabel: getTimelineStateLabel(state, record.status),
+      timeLabel: eventTime ? formatDateTime(eventTime) : "等待事件",
+    };
+  });
+}
+
+function getTranscriptInsight(
+  transcript: CreatedTranscript | null,
+  events: JobEventRow[],
+): TranscriptInsight | null {
+  if (!transcript) {
+    return null;
+  }
+
+  const transcriptRow = transcript.transcript;
+  const transcribeEvent = findLastEventByStatuses(events, [
+    "transcribing_audio",
+  ]);
+  const extractingAudioEvent = findLastEventByStatuses(events, [
+    "extracting_audio",
+  ]);
+  const summaryEvent = findLastEventByStatuses(events, ["summarizing"]);
+
+  const language =
+    transcriptRow.language ??
+    getMetadataString(summaryEvent?.metadata, "language") ??
+    "未知";
+  const details = [
+    { label: "来源", value: formatTranscriptSource(transcriptRow.source) },
+    { label: "语言", value: language },
+    { label: "分段", value: `${transcriptRow.segmentCount} 段` },
+    { label: "生成时间", value: formatDateTime(transcriptRow.createdAt) },
+  ];
+
+  if (transcriptRow.source === "asr") {
+    const provider =
+      getMetadataString(transcribeEvent?.metadata, "provider") ??
+      "faster-whisper";
+    const model = getMetadataString(transcribeEvent?.metadata, "model");
+    const device = getMetadataString(transcribeEvent?.metadata, "device");
+    const computeType = getMetadataString(
+      transcribeEvent?.metadata,
+      "computeType",
+    );
+    const vadFilter = getMetadataBoolean(
+      transcribeEvent?.metadata,
+      "vadFilter",
+    );
+    const audioDurationMs = getMetadataNumber(
+      transcribeEvent?.metadata,
+      "audioDownloadDurationMs",
+    );
+    const audioExtension = getMetadataString(
+      transcribeEvent?.metadata,
+      "audioExtension",
+    );
+    const audioProvider = getMetadataString(
+      extractingAudioEvent?.metadata,
+      "provider",
+    );
+
+    details.push({ label: "转写引擎", value: provider });
+
+    if (model) {
+      details.push({ label: "ASR 模型", value: model });
+    }
+
+    if (device || computeType) {
+      details.push({
+        label: "运行配置",
+        value: [device, computeType].filter(Boolean).join(" · "),
+      });
+    }
+
+    if (audioDurationMs !== null || audioExtension || audioProvider) {
+      details.push({
+        label: "音频提取",
+        value: [
+          audioProvider,
+          audioDurationMs !== null
+            ? formatElapsedDuration(audioDurationMs)
+            : null,
+          audioExtension,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    }
+
+    if (vadFilter !== null) {
+      details.push({ label: "VAD", value: vadFilter ? "开启" : "关闭" });
+    }
+  }
+
+  return {
+    details,
+    warning: getTranscriptQualityWarning(transcript),
+  };
+}
+
+function getTranscriptQualityWarning(transcript: CreatedTranscript) {
+  const sampleText = [
+    transcript.transcript.plainText ?? "",
+    ...transcript.segments.map((segment) => segment.text),
+  ].join("\n");
+  const replacementCount = countReplacementCharacters(sampleText);
+
+  if (replacementCount > 0) {
+    return `检测到 ${replacementCount} 个疑似乱码字符。建议重新处理，或检查 faster-whisper 输出编码与本地终端编码。`;
+  }
+
+  return null;
+}
+
+function countReplacementCharacters(value: string) {
+  return [...value].filter((character) => character === "\uFFFD").length;
+}
+
+function findFirstEventByStatuses(
+  events: JobEventRow[],
+  statuses: VideoRecordStatus[],
+) {
+  return events.find((event) => statuses.includes(event.status)) ?? null;
+}
+
+function findLastEventByStatuses(
+  events: JobEventRow[],
+  statuses: VideoRecordStatus[],
+) {
+  return (
+    [...events].reverse().find((event) => statuses.includes(event.status)) ??
+    null
+  );
+}
+
+function getMetadataString(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+) {
+  const value = metadata?.[key];
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  return null;
+}
+
+function getMetadataNumber(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+) {
+  const value = metadata?.[key];
+
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function getMetadataBoolean(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+) {
+  const value = metadata?.[key];
+
+  return typeof value === "boolean" ? value : null;
+}
+
+function getTimelineItemState({
+  activeStep,
+  index,
+  status,
+}: {
+  activeStep: number;
+  index: number;
+  status: VideoRecordStatus;
+}): TimelineItemState {
+  if (status === "completed" || index < activeStep) {
+    return "completed";
+  }
+
+  if (status === "failed" && index === activeStep) {
+    return "failed";
+  }
+
+  if (status === "cancelled" && index === activeStep) {
+    return "cancelled";
+  }
+
+  if (index === activeStep) {
+    return "active";
+  }
+
+  return "pending";
+}
+
+function getTimelineMarkerClass(state: TimelineItemState) {
+  const classes: Record<TimelineItemState, string> = {
+    active: "border-blue-600 bg-blue-600 text-white",
+    cancelled: "border-slate-500 bg-slate-500 text-white",
+    completed: "border-emerald-600 bg-emerald-600 text-white",
+    failed: "border-red-600 bg-red-600 text-white",
+    pending: "border-slate-300 bg-white text-slate-400",
+  };
+
+  return classes[state];
+}
+
+function getTimelineStateClass(state: TimelineItemState) {
+  const classes: Record<TimelineItemState, string> = {
+    active: "bg-blue-50 text-blue-700",
+    cancelled: "bg-slate-100 text-slate-700",
+    completed: "bg-emerald-50 text-emerald-700",
+    failed: "bg-red-50 text-red-700",
+    pending: "bg-slate-100 text-slate-500",
+  };
+
+  return classes[state];
+}
+
+function getTimelineStateLabel(
+  state: TimelineItemState,
+  recordStatus: VideoRecordStatus,
+) {
+  const labels: Record<TimelineItemState, string> = {
+    active: statusLabels[recordStatus],
+    cancelled: "已取消",
+    completed: "已完成",
+    failed: "失败",
+    pending: "待处理",
+  };
+
+  return labels[state];
+}
+
+function formatElapsedDuration(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+
+  if (totalSeconds < 1) {
+    return "<1 秒";
+  }
+
+  if (totalSeconds < 60) {
+    return `${totalSeconds} 秒`;
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes < 60) {
+    return `${minutes} 分 ${seconds.toString().padStart(2, "0")} 秒`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return `${hours} 小时 ${remainingMinutes.toString().padStart(2, "0")} 分`;
+}
+
+function resolveActiveStep(status: VideoRecordStatus, events: JobEventRow[]) {
+  if (status === "failed" || status === "cancelled") {
+    const lastStageEvent = findLastEventByStatuses(
+      events,
+      timelineSteps.flatMap((step) => step.statuses),
+    );
+
+    if (lastStageEvent) {
+      const failedStepIndex = timelineSteps.findIndex((step) =>
+        step.statuses.includes(lastStageEvent.status),
+      );
+
+      return failedStepIndex === -1 ? 0 : failedStepIndex;
+    }
+
+    return status === "failed" ? 2 : 0;
   }
 
   const index = timelineSteps.findIndex((step) =>

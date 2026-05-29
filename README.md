@@ -164,6 +164,34 @@ pnpm --filter @video-digest-nextjs/video-digest-core build
 pnpm --filter @video-digest-nextjs/mcp-server build
 ```
 
+Docker 本地/服务器部署：
+
+```bash
+cp .env.docker.example .env.docker
+pnpm docker:up
+pnpm docker:config
+pnpm docker:logs
+pnpm docker:ps
+pnpm docker:down
+```
+
+- `pnpm docker:up`：构建并后台启动 Web、Worker 和 Redis。
+- `pnpm docker:build`：只构建 Docker 镜像。
+- `pnpm docker:config`：检查并展开 Docker Compose 配置。
+- `pnpm docker:logs`：跟踪 Web 和 Worker 日志。
+- `pnpm docker:ps`：查看 compose 服务状态。
+- `pnpm docker:down`：停止并移除 compose 服务。
+
+Docker 部署使用根目录 `.env.docker`，可从 `.env.docker.example` 复制。默认服务：
+
+```txt
+web: http://localhost:3000
+redis: redis://redis:6379
+worker: 后台消费 BullMQ 任务
+```
+
+`.env.docker` 不应提交到 Git，里面需要配置 Supabase、Redis、Resend、OpenAI-compatible API 和 faster-whisper 相关变量。
+
 MCP Server 发包相关命令：
 
 ```bash

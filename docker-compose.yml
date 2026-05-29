@@ -1,0 +1,44 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      REDIS_URL: redis://redis:6379
+      WEB_APP_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      REDIS_URL: redis://redis:6379
+      WEB_APP_URL: http://localhost:3000
+      YTDLP_PATH: yt-dlp
+      FASTER_WHISPER_PYTHON_PATH: python3
+      FASTER_WHISPER_SCRIPT_PATH: /app/scripts/asr/faster-whisper-transcribe.py
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:

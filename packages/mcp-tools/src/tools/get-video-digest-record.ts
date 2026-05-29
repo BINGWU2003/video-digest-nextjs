@@ -27,7 +27,7 @@ export const getVideoDigestRecordTool: ToolDefinition<
 > = {
   name: "get_video_digest_record",
   description:
-    "Read a video digest record with transcript, summary and delivery status for the current actor.",
+    "Read the current snapshot of a video digest record, including status, transcript, summary, and delivery state when available. Use this for user-requested checks or final result retrieval, not for tight polling. If the status is queued, fetching_metadata, extracting_transcript, extracting_audio, transcribing_audio, summarizing, or delivering, report the current state and ask the user to check again later instead of continuing to wait.",
   requiredScopes: ["digest:read"],
   createHandler:
     (dependencies) =>

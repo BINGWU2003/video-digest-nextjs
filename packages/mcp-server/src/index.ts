@@ -22,7 +22,7 @@ server.registerTool(
   "create_video_digest_job",
   {
     description:
-      "Create a queued YouTube or Bilibili video digest job in Video Digest.",
+      "Start an asynchronous YouTube or Bilibili video digest job in Video Digest. This returns immediately with a recordId and status; long videos, audio transcription, summary generation, and email delivery can take minutes. Do not wait for completion or repeatedly poll in the same turn. Give the user the recordId and only call get_video_digest_record later when the user asks for a status or result check.",
     inputSchema: createVideoDigestJobInputSchema,
   },
   async (input) => {
@@ -47,7 +47,7 @@ server.registerTool(
   "get_video_digest_record",
   {
     description:
-      "Read a Video Digest record with transcript, summary and delivery status.",
+      "Read the current snapshot of a Video Digest record, including status, transcript, summary, and delivery state when available. Use for explicit status checks or result retrieval, not tight polling. If the job is still queued or processing, report the current status and ask the user to check again later instead of waiting.",
     inputSchema: getVideoDigestRecordInputSchema,
   },
   async (input) => {

@@ -9,8 +9,8 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "mcp:build": "pnpm --filter @video-digest-nextjs/mcp-server build",
-    "mcp:check": "pnpm --filter @video-digest-nextjs/mcp-server check-types && pnpm --filter @video-digest-nextjs/mcp-server lint && pnpm --filter @video-digest-nextjs/mcp-server build",
+    "mcp:build": "turbo run build --filter=@video-digest-nextjs/mcp-server",
+    "mcp:check": "turbo run check-types lint build --filter=@video-digest-nextjs/mcp-server",
     "mcp:pack": "npm pack ./packages/mcp-server --dry-run",
     "mcp:publish": "npm publish ./packages/mcp-server --access public",
     "mcp:version:patch": "npm --prefix packages/mcp-server version patch --no-git-tag-version"

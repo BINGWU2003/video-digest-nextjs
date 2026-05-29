@@ -5,33 +5,33 @@ export const createVideoDigestJobInputSchema = z.object({
     .boolean()
     .default(false)
     .describe(
-      "Allow audio extraction and local ASR when no public subtitle is available. This can make the async job much slower, especially for long videos.",
+      "当视频没有公开字幕时，是否允许提取音频并使用本地 ASR 转写。开启后异步任务可能明显变慢，长视频尤其明显。",
     ),
   outputMode: z
     .enum(["transcript", "summary", "summary_and_email"])
     .default("summary")
     .describe(
-      "Requested async output. Use transcript for subtitle extraction only, summary to generate an AI summary, or summary_and_email to also deliver the generated summary by email.",
+      "异步任务的输出模式。transcript 只提取字幕，summary 生成 AI 摘要，summary_and_email 生成摘要后再通过邮件投递。",
     ),
   platform: z
     .enum(["auto", "youtube", "bilibili"])
     .default("auto")
-    .describe("Video platform. Prefer auto unless the user explicitly specifies one."),
+    .describe("视频平台。除非用户明确指定，否则优先使用 auto。"),
   sendEmail: z
     .boolean()
     .default(false)
     .describe(
-      "Request email delivery after summary generation. The user must have a default verified email address.",
+      "是否在摘要生成后请求邮件投递。用户必须已有默认的已验证邮箱。",
     ),
   url: z
     .url()
-    .describe("YouTube or Bilibili video URL to process asynchronously."),
+    .describe("需要异步处理的 YouTube 或 Bilibili 视频链接。"),
 });
 
 export const getVideoDigestRecordInputSchema = z.object({
   recordId: z
     .uuid()
-    .describe("Record ID returned by create_video_digest_job."),
+    .describe("create_video_digest_job 返回的视频摘要记录 ID。"),
   segmentLimit: z
     .number()
     .int()
@@ -39,7 +39,7 @@ export const getVideoDigestRecordInputSchema = z.object({
     .max(200)
     .default(50)
     .describe(
-      "Maximum transcript segments to include in this snapshot. Use a small value such as 20-50 unless the user needs more text.",
+      "本次快照最多返回的字幕分段数量。除非用户需要更多文本，否则建议使用 20 到 50 这样的小值。",
     ),
 });
 

@@ -22,7 +22,7 @@ server.registerTool(
   "create_video_digest_job",
   {
     description:
-      "Start an asynchronous YouTube or Bilibili video digest job in Video Digest. This returns immediately with a recordId and status; long videos, audio transcription, summary generation, and email delivery can take minutes. Do not wait for completion or repeatedly poll in the same turn. Give the user the recordId and only call get_video_digest_record later when the user asks for a status or result check.",
+      "在 Video Digest 中创建一个异步 YouTube 或 Bilibili 视频摘要任务。这个工具会立即返回 recordId 和状态；长视频、音频转写、摘要生成和邮件投递可能需要几分钟。不要在同一轮对话里等待任务完成，也不要反复轮询。把 recordId 告诉用户；只有当用户稍后要求查询状态或结果时，才调用 get_video_digest_record。",
     inputSchema: createVideoDigestJobInputSchema,
   },
   async (input) => {
@@ -47,7 +47,7 @@ server.registerTool(
   "get_video_digest_record",
   {
     description:
-      "Read the current snapshot of a Video Digest record, including status, transcript, summary, and delivery state when available. Use for explicit status checks or result retrieval, not tight polling. If the job is still queued or processing, report the current status and ask the user to check again later instead of waiting.",
+      "读取 Video Digest 记录的当前快照，包括状态、字幕、摘要和投递状态。这个工具用于明确的状态查询或结果获取，不用于密集轮询。如果任务仍在排队或处理中，只需报告当前状态，并让用户稍后再查，不要继续等待。",
     inputSchema: getVideoDigestRecordInputSchema,
   },
   async (input) => {

@@ -16,7 +16,7 @@ export const createVideoDigestJobTool: ToolDefinition<
 > = {
   name: "create_video_digest_job",
   description:
-    "Start an asynchronous YouTube or Bilibili video digest job and return immediately with a recordId and current status. Long videos, audio fallback, summary generation, and email delivery can take minutes; do not wait for completion or poll repeatedly in the same turn. After creating the job, tell the user the recordId and use get_video_digest_record only for an explicit later status/result check.",
+    "创建一个异步 YouTube 或 Bilibili 视频摘要任务，并立即返回 recordId 和当前状态。长视频、音频转写、摘要生成和邮件投递可能需要几分钟；不要在同一轮对话里等待任务完成，也不要反复轮询。创建任务后，把 recordId 告诉用户；只有当用户明确要求稍后查询状态或结果时，才调用 get_video_digest_record。",
   requiredScopes: ["digest:create"],
   createHandler:
     (dependencies) =>

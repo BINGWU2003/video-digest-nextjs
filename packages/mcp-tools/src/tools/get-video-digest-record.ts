@@ -27,7 +27,7 @@ export const getVideoDigestRecordTool: ToolDefinition<
 > = {
   name: "get_video_digest_record",
   description:
-    "Read the current snapshot of a video digest record, including status, transcript, summary, and delivery state when available. Use this for user-requested checks or final result retrieval, not for tight polling. If the status is queued, fetching_metadata, extracting_transcript, extracting_audio, transcribing_audio, summarizing, or delivering, report the current state and ask the user to check again later instead of continuing to wait.",
+    "读取视频摘要记录的当前快照，包括状态、字幕、摘要和投递状态。这个工具用于用户主动要求查询状态或获取最终结果，不用于密集轮询。如果状态仍是 queued、fetching_metadata、extracting_transcript、extracting_audio、transcribing_audio、summarizing 或 delivering，只需告知用户当前状态，并建议稍后再查，不要继续等待。",
   requiredScopes: ["digest:read"],
   createHandler:
     (dependencies) =>

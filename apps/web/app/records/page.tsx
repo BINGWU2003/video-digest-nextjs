@@ -230,7 +230,17 @@ export default async function RecordsPage({
             `${pageStart}-${pageEnd} / ${totalRecords} 条真实记录`
           }
         />
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-slate-200 lg:hidden">
+          {records.map((record) => (
+            <RecordMobileCard key={record.id} record={record} />
+          ))}
+          {records.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-500">
+              暂无记录，先从工作台创建一个任务。
+            </div>
+          ) : null}
+        </div>
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[980px] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-[0.04em] text-slate-500">
               <tr>
@@ -368,6 +378,60 @@ function parseStatusFilter(value: string | undefined) {
   }
 
   return videoRecordStatuses.find((status) => status === value) ?? null;
+}
+
+function RecordMobileCard({ record }: { record: VideoRecordRow }) {
+  return (
+    <article className="grid gap-4 px-5 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link
+            href={`/records/${record.id}`}
+            className="line-clamp-2 font-medium leading-6 text-slate-950 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            {displayRecordTitle(record)}
+          </Link>
+          <p className="mt-1 truncate text-xs text-slate-500">
+            {record.sourceUrl}
+          </p>
+        </div>
+        <StatusBadge tone={statusTone(record.status)}>
+          {statusLabels[record.status]}
+        </StatusBadge>
+      </div>
+
+      <dl className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm sm:grid-cols-2">
+        <RecordMobileMeta label="平台" value={platformLabels[record.platform]} />
+        <RecordMobileMeta label="创建来源" value={formatCreatedBy(record)} />
+        <RecordMobileMeta label="创建时间" value={formatDateTime(record.createdAt)} />
+        <RecordMobileMeta label="完成时间" value={formatDateTime(record.completedAt)} />
+        <RecordMobileMeta
+          label="字幕来源"
+          value={formatTranscriptSource(record.transcriptSource)}
+        />
+        <RecordMobileMeta
+          label="投递"
+          value={record.sendEmail ? "待投递" : "不投递"}
+        />
+      </dl>
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-slate-500">记录 ID：{record.id.slice(0, 8)}</p>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/records/${record.id}`}>打开详情</Link>
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function RecordMobileMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-1">
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="break-words font-medium text-slate-800">{value}</dd>
+    </div>
+  );
 }
 
 function parsePlatformFilter(value: string | undefined) {

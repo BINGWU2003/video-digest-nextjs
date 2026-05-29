@@ -35,6 +35,7 @@ import {
   PanelHeader,
   StatusBadge,
 } from "../../_components/app-shell";
+import { FormSubmitButton } from "../../_components/form-submit-button";
 import { MailIcon, RefreshIcon, TrashIcon } from "../../_components/icons";
 import {
   cancelVideoDigestJobAction,
@@ -126,6 +127,7 @@ export default async function RecordDetailPage({
   const failureHint = getFailureHint(record.errorCode);
   const reusedExistingRecord = resolvedSearchParams?.reused === "1";
   const deliveryAction = getDeliveryActionState(summary, deliveryRecord);
+  const processingState = getProcessingState(record.status);
 
   return (
     <AppShell current="/records" userEmail={user.email}>
@@ -141,20 +143,23 @@ export default async function RecordDetailPage({
             </Button>
             <form action={redeliverSummaryEmailAction}>
               <input name="id" type="hidden" value={record.id} />
-              <Button
+              <FormSubmitButton
                 disabled={deliveryAction.disabled}
+                icon={<MailIcon />}
+                pendingLabel="提交中"
                 title={deliveryAction.reason}
                 type="submit"
                 variant="outline"
               >
-                <MailIcon />
                 {deliveryAction.label}
-              </Button>
+              </FormSubmitButton>
             </form>
             <form action={retryVideoDigestJobAction}>
               <input name="id" type="hidden" value={record.id} />
-              <Button
+              <FormSubmitButton
                 disabled={!retryable}
+                icon={<RefreshIcon />}
+                pendingLabel="重新入队中"
                 title={
                   retryable
                     ? "重新从视频信息、字幕提取和摘要生成开始处理。"
@@ -163,20 +168,20 @@ export default async function RecordDetailPage({
                 type="submit"
                 variant="outline"
               >
-                <RefreshIcon />
                 重新处理
-              </Button>
+              </FormSubmitButton>
             </form>
             <form action={cancelVideoDigestJobAction}>
               <input name="id" type="hidden" value={record.id} />
-              <Button
+              <FormSubmitButton
                 disabled={!cancellable}
+                icon={<TrashIcon />}
+                pendingLabel="取消中"
                 type="submit"
                 variant="destructive"
               >
-                <TrashIcon />
                 取消任务
-              </Button>
+              </FormSubmitButton>
             </form>
           </>
         }
@@ -221,17 +226,28 @@ export default async function RecordDetailPage({
                     </p>
                   ) : null}
                 </div>
+              ) : processingState ? (
+                <div className="grid gap-3">
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <p className="text-sm font-semibold text-blue-950">
+                      {processingState.title}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-blue-800">
+                      {processingState.description}
+                    </p>
+                    <p className="mt-3 text-xs leading-5 text-blue-700">
+                      页面会自动刷新处理状态。你也可以离开页面，稍后在记录列表中继续查看。
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
+                    最近更新时间：{formatDateTime(record.updatedAt)}。长视频、音频转写和摘要生成可能需要几分钟。
+                  </div>
+                </div>
               ) : (
                 <p className="text-sm leading-6 text-slate-600">
                   当前任务已进入 {statusLabels[record.status]} 阶段。
                 </p>
               )}
-
-              {record.status === "summarizing" ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
-                  字幕已写入，正在生成摘要。
-                </div>
-              ) : null}
             </div>
           </Panel>
 
@@ -424,6 +440,53 @@ type TranscriptInsight = {
   details: Array<{ label: string; value: string }>;
   warning: string | null;
 };
+
+type ProcessingState = {
+  description: string;
+  title: string;
+};
+
+function getProcessingState(status: VideoRecordStatus): ProcessingState | null {
+  const states: Partial<Record<VideoRecordStatus, ProcessingState>> = {
+    delivering: {
+      description:
+        "摘要已经生成，正在提交邮件服务商并等待投递状态回写。你可以稍后在邮件投递区查看最新结果。",
+      title: "正在投递摘要邮件",
+    },
+    extracting_audio: {
+      description:
+        "没有直接可用的字幕时，worker 会尝试提取音频用于后续转写。长视频在这个阶段耗时会更明显。",
+      title: "正在提取音频",
+    },
+    extracting_transcript: {
+      description:
+        "worker 正在查找并下载公开视频字幕。如果没有可用字幕且允许音频转写，会继续进入音频处理。",
+      title: "正在提取字幕",
+    },
+    fetching_metadata: {
+      description:
+        "worker 已接收任务，正在读取标题、作者、时长和封面等视频信息。",
+      title: "正在读取视频信息",
+    },
+    queued: {
+      description:
+        "任务已进入后台队列，等待 worker 开始处理。如果队列较忙或视频较长，开始时间可能会稍有延迟。",
+      title: "任务已创建，等待处理",
+    },
+    summarizing: {
+      description:
+        "字幕已经写入，正在调用摘要模型生成结构化摘要。长字幕会让这个阶段耗时更久。",
+      title: "正在生成摘要",
+    },
+    transcribing_audio: {
+      description:
+        "worker 正在使用本地 ASR 将音频转成字幕。这个阶段通常比直接下载字幕更慢。",
+      title: "正在转写音频",
+    },
+  };
+
+  return states[status] ?? null;
+}
 
 function TranscriptInsightPanel({ insight }: { insight: TranscriptInsight }) {
   return (

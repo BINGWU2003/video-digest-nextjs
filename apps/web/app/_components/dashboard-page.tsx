@@ -19,6 +19,7 @@ import {
   PanelHeader,
   StatusBadge,
 } from "./app-shell";
+import { FormSubmitButton } from "./form-submit-button";
 import { ArrowRightIcon, MailIcon, VideoIcon } from "./icons";
 
 import { createVideoDigestJobAction } from "../dashboard/actions";
@@ -62,7 +63,7 @@ export function DashboardPage({
         <Panel>
           <PanelHeader
             title="新建视频任务"
-            description="提交后会创建真实记录并投递到 worker 队列。"
+            description="提交后会立即创建记录并在后台异步处理；长视频、音频转写和摘要生成可能需要几分钟。"
           />
           <form action={createVideoDigestJobAction} className="grid gap-5 p-5">
             {errorMessage ? (
@@ -86,14 +87,21 @@ export function DashboardPage({
                   placeholder="https://www.youtube.com/watch?v=... 或 https://www.bilibili.com/video/BV..."
                   className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
-                <Button type="submit" className="sm:w-36">
-                  <VideoIcon />
+                <FormSubmitButton
+                  type="submit"
+                  className="sm:w-36"
+                  icon={<VideoIcon />}
+                  pendingLabel="创建中"
+                >
                   创建任务
-                </Button>
+                </FormSubmitButton>
               </div>
               <p className="text-xs text-slate-500">
                 平台会自动识别。重复链接会提示历史记录，也允许重新执行。
               </p>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">
+                创建任务后会跳转到详情页。处理过程在后台进行，你可以离开页面，稍后在记录里查看结果。
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
@@ -165,7 +173,7 @@ export function DashboardPage({
                     无字幕时转写音频
                   </label>
                   <p className="text-xs text-slate-500">
-                    ASR 模块未接入前，该选项只会进入失败恢复链路。
+                    开启后会下载音频并使用本地 ASR 转写，长视频处理时间会明显变长。
                   </p>
                 </div>
               </fieldset>

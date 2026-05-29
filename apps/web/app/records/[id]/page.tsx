@@ -193,9 +193,30 @@ export default async function RecordDetailPage({
         </div>
       ) : null}
 
+      <nav
+        aria-label="详情页快捷导航"
+        className="mb-5 flex gap-2 overflow-x-auto rounded-lg border border-slate-200 bg-white p-2 text-sm shadow-sm"
+      >
+        {[
+          ["#status", "处理状态"],
+          ["#summary", "摘要"],
+          ["#transcript", "字幕"],
+          ["#timeline", "时间线"],
+          ["#events", "事件日志"],
+        ].map(([href, label]) => (
+          <a
+            key={href}
+            href={href}
+            className="shrink-0 rounded-md px-3 py-2 font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid gap-5">
-          <Panel>
+          <Panel className="scroll-mt-4" id="status">
             <PanelHeader
               title="处理状态"
               action={
@@ -252,7 +273,7 @@ export default async function RecordDetailPage({
           </Panel>
 
           {record.outputMode !== "transcript" || summary ? (
-            <Panel>
+            <Panel className="scroll-mt-4" id="summary">
               <PanelHeader
                 title="摘要"
                 description={
@@ -285,9 +306,7 @@ export default async function RecordDetailPage({
                       <h3 className="text-sm font-semibold text-slate-900">
                         完整摘要
                       </h3>
-                      <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                        {summary.markdown}
-                      </pre>
+                      <MarkdownPreview markdown={summary.markdown} />
                     </section>
                   ) : null}
                 </div>
@@ -299,7 +318,7 @@ export default async function RecordDetailPage({
             </Panel>
           ) : null}
 
-          <Panel>
+          <Panel className="scroll-mt-4" id="transcript">
             <PanelHeader
               title="字幕"
               description={formatTranscriptSource(
@@ -341,7 +360,7 @@ export default async function RecordDetailPage({
         </div>
 
         <div className="grid content-start gap-5">
-          <Panel>
+          <Panel className="scroll-mt-4" id="timeline">
             <PanelHeader title="视频信息" />
             <dl className="grid gap-3 p-5 text-sm">
               {[
@@ -413,22 +432,33 @@ export default async function RecordDetailPage({
             </ol>
           </Panel>
 
-          <Panel>
-            <PanelHeader
-              title="事件日志"
-              description={`${events.length} 条任务事件`}
-            />
-            {events.length > 0 ? (
-              <ol className="divide-y divide-slate-200">
-                {events.map((event) => (
-                  <JobEventItem key={event.id} event={event} />
-                ))}
-              </ol>
-            ) : (
-              <div className="p-5 text-sm text-slate-600">
-                暂无任务事件。worker 写入状态事件后会显示在这里。
-              </div>
-            )}
+          <Panel className="scroll-mt-4" id="events">
+            <details>
+              <summary className="flex cursor-pointer list-none flex-col gap-1 border-b border-slate-200 px-5 py-4 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  <span className="block text-base font-semibold text-slate-950">
+                    事件日志
+                  </span>
+                  <span className="mt-1 block text-sm leading-5 text-slate-600">
+                    {events.length} 条任务事件，主要用于排查 worker 处理细节。
+                  </span>
+                </span>
+                <span className="text-sm font-medium text-blue-700">
+                  展开查看
+                </span>
+              </summary>
+              {events.length > 0 ? (
+                <ol className="divide-y divide-slate-200">
+                  {events.map((event) => (
+                    <JobEventItem key={event.id} event={event} />
+                  ))}
+                </ol>
+              ) : (
+                <div className="p-5 text-sm text-slate-600">
+                  暂无任务事件。worker 写入状态事件后会显示在这里。
+                </div>
+              )}
+            </details>
           </Panel>
         </div>
       </div>
@@ -763,6 +793,118 @@ function SummaryTimeline({ summary }: { summary: SummaryRow }) {
       </div>
     </section>
   );
+}
+
+function MarkdownPreview({ markdown }: { markdown: string }) {
+  const blocks = parseMarkdownBlocks(markdown);
+
+  return (
+    <div className="max-h-[640px] overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+      <div className="grid gap-3">
+        {blocks.map((block, index) => {
+          if (block.type === "heading") {
+            return (
+              <h4
+                key={`${block.content}-${index}`}
+                className="text-base font-semibold leading-7 text-slate-950"
+              >
+                {block.content}
+              </h4>
+            );
+          }
+
+          if (block.type === "list") {
+            return (
+              <ul
+                key={`${block.items.join("-")}-${index}`}
+                className="grid gap-2 pl-1"
+              >
+                {block.items.map((item) => (
+                  <li key={item} className="flex gap-2">
+                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-slate-400" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            );
+          }
+
+          return <p key={`${block.content}-${index}`}>{block.content}</p>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+type MarkdownBlock =
+  | { content: string; type: "heading" }
+  | { content: string; type: "paragraph" }
+  | { items: string[]; type: "list" };
+
+function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
+  const blocks: MarkdownBlock[] = [];
+  const paragraphLines: string[] = [];
+  let listItems: string[] = [];
+
+  function flushParagraph() {
+    if (paragraphLines.length === 0) {
+      return;
+    }
+
+    blocks.push({
+      content: paragraphLines.join(" "),
+      type: "paragraph",
+    });
+    paragraphLines.length = 0;
+  }
+
+  function flushList() {
+    if (listItems.length === 0) {
+      return;
+    }
+
+    blocks.push({
+      items: listItems,
+      type: "list",
+    });
+    listItems = [];
+  }
+
+  for (const rawLine of markdown.split(/\r?\n/)) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    if (line.startsWith("#")) {
+      flushParagraph();
+      flushList();
+      blocks.push({
+        content: line.replace(/^#+\s*/, ""),
+        type: "heading",
+      });
+      continue;
+    }
+
+    const listMatch = line.match(/^[-*]\s+(.*)$/);
+
+    if (listMatch) {
+      flushParagraph();
+      listItems.push(listMatch[1] ?? "");
+      continue;
+    }
+
+    flushList();
+    paragraphLines.push(line);
+  }
+
+  flushParagraph();
+  flushList();
+
+  return blocks;
 }
 
 function isSummaryTimelineItem(value: unknown): value is {

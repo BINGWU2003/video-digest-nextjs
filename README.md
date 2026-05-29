@@ -186,7 +186,7 @@ Docker 部署使用根目录 `.env.docker`，可从 `.env.docker.example` 复制
 
 ```txt
 web: http://localhost:3000
-redis: redis://redis:6379
+redis: redis://redis:6379，仅 Compose 内部访问
 worker: 后台消费 BullMQ 任务
 ```
 

@@ -19,9 +19,9 @@ import {
   PanelHeader,
   StatusBadge,
 } from "../../_components/app-shell";
-import { TrashIcon } from "../../_components/icons";
 import { createMcpTokenAction, revokeMcpTokenAction } from "./actions";
 import { CopyTextButton } from "./copy-text-button";
+import { RevokeTokenButton } from "./revoke-token-button";
 
 const scopes = [
   {
@@ -36,7 +36,22 @@ const scopes = [
   },
 ] as const;
 
-const configExample = `MCP URL: https://your-domain.com/api/mcp
+const mcpClientConfigExample = `{
+  "mcpServers": {
+    "video-digest": {
+      "command": "node",
+      "args": [
+        "D:/code/next-project/video-digest-nextjs/packages/mcp-server/dist/index.js"
+      ],
+      "env": {
+        "VIDEO_DIGEST_WEB_APP_URL": "https://your-domain.com",
+        "VIDEO_DIGEST_MCP_TOKEN": "mcp_xxx"
+      }
+    }
+  }
+}`;
+
+const gatewayConfigExample = `MCP HTTP Gateway: https://your-domain.com/api/mcp
 Authorization: Bearer mcp_xxx`;
 
 const curlExample = [
@@ -89,6 +104,9 @@ export default async function McpTokenSettingsPage({
         <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm font-medium text-amber-950">
             新令牌只显示一次
+          </p>
+          <p className="mt-2 text-sm leading-6 text-amber-900">
+            请立即复制并保存到 MCP 客户端配置中。离开或刷新页面后，系统不会再次显示完整令牌。
           </p>
           <pre className="mt-3 overflow-x-auto rounded-md bg-white p-3 font-mono text-xs leading-6 text-slate-950 ring-1 ring-amber-200">
             {resolvedSearchParams.createdToken}
@@ -175,12 +193,28 @@ export default async function McpTokenSettingsPage({
           </Panel>
 
           <Panel>
-            <PanelHeader title="配置示例" />
+            <PanelHeader
+              title="MCP 客户端配置"
+              description="适用于 Cursor、Claude Desktop、OpenCode 等支持 mcpServers 的客户端。"
+            />
             <div className="grid gap-3 p-5">
               <pre className="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-slate-100">
-                {configExample}
+                {mcpClientConfigExample}
               </pre>
-              <CopyTextButton label="复制配置" text={configExample} />
+              <CopyTextButton label="复制客户端配置" text={mcpClientConfigExample} />
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+                本地源码使用前需要先运行 pnpm --filter @video-digest-nextjs/mcp-server build。生产环境可把 VIDEO_DIGEST_WEB_APP_URL 改成线上域名。
+              </div>
+            </div>
+          </Panel>
+
+          <Panel>
+            <PanelHeader title="HTTP Gateway 配置" />
+            <div className="grid gap-3 p-5">
+              <pre className="overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-slate-100">
+                {gatewayConfigExample}
+              </pre>
+              <CopyTextButton label="复制 Gateway 配置" text={gatewayConfigExample} />
             </div>
           </Panel>
 
@@ -255,10 +289,18 @@ function TokenItem({
               <span>{formatDateTime(latestEvent.createdAt)}</span>
             </div>
             {latestEvent.errorMessage ? (
-              <p className="mt-2 line-clamp-2 text-red-700">
-                {latestEvent.errorCode ? `${latestEvent.errorCode}: ` : ""}
-                {latestEvent.errorMessage}
-              </p>
+              <div className="mt-2 grid gap-2">
+                <p className="line-clamp-2 text-red-700">
+                  {latestEvent.errorCode ? `${latestEvent.errorCode}: ` : ""}
+                  {latestEvent.errorMessage}
+                </p>
+                <div>
+                  <CopyTextButton
+                    label="复制错误"
+                    text={formatTokenEventDiagnostic(latestEvent)}
+                  />
+                </div>
+              </div>
             ) : null}
           </div>
         ) : null}
@@ -277,14 +319,10 @@ function TokenItem({
       {canRevoke ? (
         <form action={revokeMcpTokenAction}>
           <input type="hidden" name="id" value={token.id} />
-          <Button variant="outline" size="sm" type="submit">
-            <TrashIcon />
-            撤销
-          </Button>
+          <RevokeTokenButton tokenName={token.name} />
         </form>
       ) : (
         <Button variant="outline" size="sm" disabled>
-          <TrashIcon />
           撤销
         </Button>
       )}
@@ -306,10 +344,18 @@ function RecentTokenEventItem({ event }: { event: McpTokenEventRow }) {
       <div>
         <p className="font-mono text-sm text-slate-950">{event.toolName}</p>
         {event.errorMessage ? (
-          <p className="mt-1 line-clamp-2 text-sm text-red-700">
-            {event.errorCode ? `${event.errorCode}: ` : ""}
-            {event.errorMessage}
-          </p>
+          <div className="mt-2 grid gap-2">
+            <p className="line-clamp-2 text-sm text-red-700">
+              {event.errorCode ? `${event.errorCode}: ` : ""}
+              {event.errorMessage}
+            </p>
+            <div>
+              <CopyTextButton
+                label="复制诊断"
+                text={formatTokenEventDiagnostic(event)}
+              />
+            </div>
+          </div>
         ) : (
           <p className="mt-1 text-sm text-slate-500">调用完成</p>
         )}
@@ -403,6 +449,18 @@ function getTokenStatus(token: McpTokenRow): TokenStatus {
 
 function isActiveToken(token: McpTokenRow) {
   return getTokenStatus(token) === "active";
+}
+
+function formatTokenEventDiagnostic(event: McpTokenEventRow) {
+  return [
+    `tool: ${event.toolName}`,
+    `status: ${event.status}`,
+    `errorCode: ${event.errorCode ?? "none"}`,
+    `errorMessage: ${event.errorMessage ?? "none"}`,
+    `durationMs: ${event.durationMs}`,
+    `createdAt: ${event.createdAt.toISOString()}`,
+    `tokenPrefix: ${event.tokenPrefix ?? "unknown"}`,
+  ].join("\n");
 }
 
 function formatOptionalDate(value: Date | null) {

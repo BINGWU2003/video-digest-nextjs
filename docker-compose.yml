@@ -28,8 +28,8 @@ services:
       context: .
       dockerfile: docker/worker.Dockerfile
       args:
-        APT_MIRROR: ${APT_MIRROR:-}
-        APT_SECURITY_MIRROR: ${APT_SECURITY_MIRROR:-}
+        APT_MIRROR: ${APT_MIRROR:-https://mirrors.aliyun.com/debian}
+        APT_SECURITY_MIRROR: ${APT_SECURITY_MIRROR:-https://mirrors.aliyun.com/debian-security}
     restart: unless-stopped
     env_file:
       - path: .env.docker

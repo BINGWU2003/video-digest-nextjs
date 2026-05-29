@@ -164,6 +164,30 @@ pnpm --filter @video-digest-nextjs/video-digest-core build
 pnpm --filter @video-digest-nextjs/mcp-server build
 ```
 
+MCP Server 发包相关命令：
+
+```bash
+pnpm mcp:build
+pnpm mcp:check
+pnpm mcp:pack
+pnpm mcp:publish
+pnpm mcp:version:patch
+```
+
+- `pnpm mcp:build`：通过 Turborepo 只构建 `@video-digest-nextjs/mcp-server`。
+- `pnpm mcp:check`：通过 Turborepo 对 MCP Server 依次运行类型检查、lint 和构建，建议发布前先跑。
+- `pnpm mcp:pack`：预览 npm tarball 内容，不会真正发布。
+- `pnpm mcp:publish`：发布 `packages/mcp-server` 到 npm，并使用 public access。
+- `pnpm mcp:version:patch`：只提升 MCP Server 包的 patch 版本，不自动创建 Git tag。
+
+如果 npm 发布需要 2FA 验证码，可以这样传入：
+
+```bash
+pnpm mcp:publish -- --otp 123456
+```
+
+如果当前版本从未成功发布过，不需要先执行 `pnpm mcp:version:patch`，可以直接重新发布当前版本。
+
 ## 文档入口
 
 - [Web 产品设计](docs/video-digest-web-product.md)

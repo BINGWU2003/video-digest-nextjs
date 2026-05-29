@@ -10,7 +10,7 @@ RUN corepack enable
 COPY . .
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter web build
+RUN pnpm turbo run build --filter=web
 
 ENV NODE_ENV=production
 ENV PORT=3000

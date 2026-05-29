@@ -27,6 +27,9 @@ services:
     build:
       context: .
       dockerfile: docker/worker.Dockerfile
+      args:
+        APT_MIRROR: ${APT_MIRROR:-}
+        APT_SECURITY_MIRROR: ${APT_SECURITY_MIRROR:-}
     restart: unless-stopped
     env_file:
       - path: .env.docker

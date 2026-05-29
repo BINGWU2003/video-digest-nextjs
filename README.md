@@ -192,6 +192,17 @@ worker: 后台消费 BullMQ 任务
 
 `.env.docker` 不应提交到 Git，里面需要配置 Supabase、Redis、Resend、OpenAI-compatible API 和 faster-whisper 相关变量。
 
+如果构建 worker 镜像时长时间停在 `deb.debian.org` 下载 `ffmpeg` 相关 Debian 包，可以为 Docker Compose 构建配置 APT 镜像源。PowerShell 示例：
+
+```powershell
+$env:APT_MIRROR="https://mirrors.aliyun.com/debian"
+$env:APT_SECURITY_MIRROR="https://mirrors.aliyun.com/debian-security"
+pnpm docker:build
+pnpm docker:up
+```
+
+这些变量只影响镜像构建阶段，不需要写入 `.env.docker`。
+
 MCP Server 发包相关命令：
 
 ```bash
